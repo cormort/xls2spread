@@ -202,18 +202,19 @@ def build(path, sheet=None):
 
     # rowBreaks 的 id 是「這一列之後分頁」，所以下一頁從 id+1 開始
     breaks = sorted(body_rows.index(r) + 1 for r in brk if r in body_rows and r != body_rows[-1])
-    # Excel fitToPage 會整體縮放列印，縮放率沒存在檔裡；用「最滿的一頁剛好塞進版心」回推
-    hs = [rowh(r) for r in body_rows]
-    pgsum, acc = [], 0.0
-    for i, h in enumerate(hs):
-        if i in breaks and i:
-            pgsum.append(acc)
-            acc = 0.0
-        acc += h
-    pgsum.append(acc + sum(rowh(r) for r in foot_rows))
-    fixed = sum(rowh(r) for r in title_rows) + sum(rowh(r) for r in head_rows)
-    body_pt = (ph - m.top * 25.4 - m.bottom * 25.4) * 72 / 25.4
-    k = min(1.0, round((body_pt - 2) / (fixed + max(pgsum)), 4)) if pgsum else 1.0
+    # Excel fitToPage 的縮放率沒存在檔裡。它是照「欄寬」縮的：把較寬的那半頁縮到版心寬度。
+    # 欄寬單位是字元數，換算像素要乘 MDW（預設字型的數字寬度），每欄再加 5px 邊距。
+    try:
+        dsz = wbs._fonts[0].sz or 11
+    except Exception:
+        dsz = 11
+    mdw = max(1, round(dsz * 96 / 72 * 0.5))
+    printable_px = (pw - (m.left + m.right) * 25.4) / 25.4 * 96
+    natural_px = max(sum(cw.get(c, 8.43) for c in halves[s]) * mdw + 5 * len(halves[s])
+                     for s in ('l', 'r'))
+    pr = ws.sheet_properties.pageSetUpPr
+    k = (min(1.0, round(printable_px / natural_px, 4)) if pr is not None and pr.fitToPage
+         else (ws.page_setup.scale or 100) / 100)
 
     return {
         'k': k,

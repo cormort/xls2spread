@@ -68,6 +68,7 @@ tr.sel>td{background:#fff6cc}
   <label>本列高<input type="number" id="rh" step="0.5" disabled>pt</label>
   <button id="bfit">選取列配高</button>
   <button id="bfitall">全部配高</button>
+  <button id="bhtml">HTML 重排</button>
   <button id="bbrk">此列前分頁 (B)</button>
   <button id="bauto">清掉全部手動分頁</button>
   <label><input type="checkbox" id="push">依列高自動分頁（前後流動）</label>
@@ -97,6 +98,8 @@ const dflt = {
   shend: shDflt      // 末頁（合計＋附註）另設
 };
 let S = Object.assign({}, dflt, store.get());
+// Object.assign 只複製陣列參照，不切一份的話改列高會把 dflt 一起改掉，「重設」就救不回來
+S.h = S.h.slice(); S.breaks = S.breaks.slice();
 if (S.h.length !== D.rows.length){ S.h = dflt.h.slice(); S.breaks = dflt.breaks.slice(); }
 let sel = -1;
 
@@ -369,8 +372,18 @@ $('sh').onchange = e => { S.sh = +e.target.value; render(); };
 $('shend').onchange = e => { S.shend = +e.target.value; render(); };
 $('zm').oninput = e => { S.zoom = +e.target.value; setVar(); };
 
+// Excel 的列高被儲存格網格撐大、分頁也是遷就格線切的；HTML 沒這限制，
+// 第一次開就照內容重排（要 Excel 原樣按「重設」）
+function htmlLayout(){
+  D.rows.forEach((_,i) => fit(i));
+  S.breaks = [];
+  render();
+}
+$('bhtml').onclick = htmlLayout;
+
 $('fname').textContent = D.name + ' / ' + D.sheet;
 bind(); render();
+if (!Object.keys(store.get()).length) htmlLayout();
 </script>
 </body>
 </html>

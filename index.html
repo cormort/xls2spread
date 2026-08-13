@@ -92,6 +92,7 @@ tr.sel>td{background:#fff6cc}
   <label>本列高<input type="number" id="rh" step="0.5" disabled>pt</label>
   <button id="bfit">選取列配高</button>
   <button id="bfitall">全部配高</button>
+  <button id="bhtml">HTML 重排</button>
   <button id="bbrk">此列前分頁 (B)</button>
   <button id="bauto">清掉全部手動分頁</button>
   <label><input type="checkbox" id="push">依列高自動分頁（前後流動）</label>
@@ -289,6 +290,8 @@ async function parseXlsx(buf, fileName){
     colBreaks: [...sh.querySelectorAll('colBreaks > brk')].map(b => +b.getAttribute('id')),
     rowBreaks: [...sh.querySelectorAll('rowBreaks > brk')].map(b => +b.getAttribute('id')),
     landscape: ps.getAttribute('orientation') === 'landscape',
+    fitToPage: isOn((sh.querySelector('sheetPr > pageSetUpPr') || {getAttribute:()=>null}).getAttribute('fitToPage')),
+    scale: +(ps.getAttribute('scale') || 100),
     margins: {l: num(pm.getAttribute('left'), .75), r: num(pm.getAttribute('right'), .75),
               t: num(pm.getAttribute('top'), 1), b: num(pm.getAttribute('bottom'), 1)},
     cells, rowH, defRowH, colW, merges, skip, shared, xfs, fonts, borders, numFmt
@@ -399,14 +402,15 @@ function buildModel(x){
   const breaks = x.rowBreaks.map(r => bodyRows.indexOf(r) + 1)
                             .filter(i => i > 0 && i < bodyRows.length).sort((a,b) => a-b);
 
-  // Excel fitToPage 的縮放率沒存在檔裡，用「最滿的一頁剛好塞進版心」回推
-  const pg = []; let acc = 0;
-  bodyRows.forEach((r,i) => { if (i && breaks.includes(i)){ pg.push(acc); acc = 0; } acc += rowh(r); });
-  pg.push(acc + footRows.reduce((s,r) => s + rowh(r), 0));
-  const fixed = titleRows.concat(headRows).reduce((s,r) => s + rowh(r), 0);
+  // Excel fitToPage 的縮放率沒存在檔裡。它是照「欄寬」縮的：把較寬的那半頁縮到版心寬度。
+  // 欄寬單位是字元數，換算像素要乘 MDW（預設字型的數字寬度），每欄再加 5px 邊距。
   const ph = x.landscape ? 210 : 297, pw = x.landscape ? 297 : 210;
-  const bodyPt = (ph - x.margins.t * 25.4 - x.margins.b * 25.4) * 72 / 25.4;
-  const k = Math.min(1, Math.round((bodyPt - 2) / (fixed + Math.max(...pg)) * 1e4) / 1e4);
+  const mdw = Math.max(1, Math.round((x.fonts[0] && x.fonts[0].sz || 11) * 96 / 72 * .5));
+  const printablePx = (pw - (x.margins.l + x.margins.r) * 25.4) / 25.4 * 96;
+  const naturalPx = Math.max(...['l','r'].map(s =>
+    halves[s].reduce((a,c) => a + (x.colW[c] || 8.43), 0) * mdw + 5 * halves[s].length));
+  const k = x.fitToPage ? Math.min(1, Math.round(printablePx / naturalPx * 1e4) / 1e4)
+                        : (x.scale || 100) / 100;
 
   return {
     name: x.fileName, sheet: x.sheetName, k,
@@ -470,9 +474,13 @@ function start(model){
   const shDflt = +((D.page.h - D.page.mt - D.page.mb) - titlePt * D.k / 72 * 25.4).toFixed(1);
   dflt = {h: D.rows.map(r => r.h), breaks: D.breaks.slice(),
           lh: 1.15, fs: 1, zoom: .5, k: D.k, push: true, sh: shDflt, shend: shDflt};
-  S = Object.assign({}, dflt, store.get());
+  const saved = store.get();
+  S = Object.assign({}, dflt, saved);
+  // Object.assign 只複製陣列參照，不切一份的話改列高會把 dflt 一起改掉，「重設」就救不回來
+  S.h = S.h.slice(); S.breaks = S.breaks.slice();
   if (S.h.length !== D.rows.length){ S.h = dflt.h.slice(); S.breaks = dflt.breaks.slice(); }
   sel = -1;
+  var firstTime = !Object.keys(saved).length;
 
   $('dyn').textContent = D.css.join('\n')
     + `\n@media print{@page{size:${D.page.w}mm ${D.page.h}mm;margin:0}`
@@ -481,6 +489,15 @@ function start(model){
   $('drop').classList.add('hide');
   $('bar').classList.remove('hide');
   bind(); render();
+  // Excel 的列高被儲存格網格撐大、分頁也是遷就格線切的；HTML 沒這限制。
+  // 第一次載入就照內容重排（要 Excel 原樣按「重設」）。
+  if (firstTime) htmlLayout();
+}
+
+function htmlLayout(){
+  D.rows.forEach((_,i) => fit(i));   // 每列壓到左右頁文字實際需要的高度
+  S.breaks = [];                     // 分頁交給高度決定，不沿用原檔的
+  render();
 }
 
 const capOf = last => ((last ? S.shend : S.sh) * 72 / 25.4) / S.k - headPt - (last ? footPt : 0);
@@ -711,6 +728,7 @@ $('bauto').onclick = () => {
   if (confirm('清掉全部 ' + S.breaks.length + ' 個手動分頁點，改成完全照列高流動？')){ S.breaks = []; render(); }
 };
 $('push').onchange = e => { S.push = e.target.checked; render(); };
+$('bhtml').onclick = htmlLayout;
 $('breset').onclick = () => { if (confirm('回到 Excel 原始列高與分頁？')){ S = JSON.parse(JSON.stringify(dflt)); bind(); render(); } };
 $('bsave').onclick = () => {
   const a = el('a');
