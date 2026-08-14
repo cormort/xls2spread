@@ -1133,6 +1133,12 @@ function makePage(idx, side, no, last, first){
       const td = cellEl('td', edited != null ? Object.assign({}, c, {t: esc(edited)}) : c, footHt(k), null, side, null);
       const w = td.firstChild;
       w.dataset.key = key;
+      // 合計／備註列：原檔的列高只當「最低高度」，格子自己隨內容長。
+      // 這兩列的高度沒有 fit 可以重算，寫死高度＋overflow:hidden 就會把多出來的那行吃掉
+      //（字還在，選得到也複製得到，就是看不見）。fitFoot 只負責把數字補回 S.footH，讓容量算得對。
+      w.style.minHeight = w.style.height;
+      w.style.height = 'auto';
+      w.style.overflow = 'visible';
       if (S.editing){ w.contentEditable = 'plaintext-only'; w.spellcheck = false; }
       if (k === 0){
         td.style.borderBottom = linePx();
@@ -1202,8 +1208,7 @@ function fitFoot(){
   D.foot.forEach((_, k) => {
     let px = 0;
     document.querySelectorAll(`tr[data-f="${k}"] .cw`).forEach(w => {
-      const h = w.style.height; w.style.height = 'auto';
-      px = Math.max(px, w.scrollHeight); w.style.height = h;
+      px = Math.max(px, w.getBoundingClientRect().height / S.zoom);
     });
     const need = Math.max(4, Math.ceil(px / PT / S.k * 10) / 10);
     if (need > footHt(k) + 0.05){
