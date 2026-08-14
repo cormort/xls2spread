@@ -55,6 +55,10 @@ td,th{padding:0;vertical-align:top;font-weight:400}
 .editing .cw span[style*="FFFFFF"]{color:#c8c8c8!important}
 .vb{display:flex;flex-direction:column;justify-content:flex-end}
 tr.sel>td{background:#fff6cc}
+tr.dragging>td{opacity:.4;background:#dbeafe!important}
+tr.drag-target-before>td{box-shadow:inset 0 3px 0 #2563eb!important}
+tr.drag-target-after>td{box-shadow:inset 0 -3px 0 #2563eb!important}
+body.row-dragging, body.row-dragging *{cursor:grabbing!important;user-select:none!important}
 .over{box-shadow:inset 0 -2px 0 #e00}
 .pno{position:absolute;bottom:5mm;left:0;right:0;text-align:center;font-size:9pt;color:#333}
 .badge{position:absolute;top:3px;right:5px;font-size:11px;color:#060;background:#eee;padding:1px 5px;border-radius:3px}
@@ -123,7 +127,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
   <button id="breset" title="回到 Excel 原始的列高與分頁，放棄所有調整">重設</button>
   <button id="bnew" title="關閉目前的檔案，回到拖曳載入畫面換一個檔案">換檔案</button>
   <button id="bprint" title="開啟瀏覽器的列印對話框，可以直接印出或存成 PDF">列印 / 存 PDF</button>
-  <span id="hint">單列調高：拖該列下緣，或點選後用 ↑↓ (Shift×5)／直接填「本列高」｜雙擊＝該列自動配高｜左右頁同一列永遠同高</span>
+  <span id="hint">單列調高：拖該列下緣，或點選後用 ↑↓ (Shift×5)／直接填「本列高」｜拖曳資料列可換順序（亦可 Alt+↑/↓）｜雙擊＝該列自動配高｜左右頁同一列永遠同高</span>
 </div>
 
 <div id="doc"></div>
@@ -931,8 +935,52 @@ function fit(i){
   S.h[i] = Math.max(4, Math.ceil(px / PT / S.k * 10) / 10);
 }
 
-let drag = null, colDrag = null;
+let drag = null, colDrag = null, rowDrag = null;
 const doc = $('doc');
+
+// ---- 資料列換順序 ----
+function moveRow(from, to, pos){
+  if (from == null || to == null) return;
+  let target = pos === 'after' ? to + 1 : to;
+  if (from < target) target--;
+  if (from === target) return;
+
+  const [row] = D.rows.splice(from, 1);
+  D.rows.splice(target, 0, row);
+
+  const [rn] = D.rowNums.splice(from, 1);
+  D.rowNums.splice(target, 0, rn);
+
+  const [h] = S.h.splice(from, 1);
+  S.h.splice(target, 0, h);
+
+  if (dflt && dflt.h){
+    const [dh] = dflt.h.splice(from, 1);
+    dflt.h.splice(target, 0, dh);
+  }
+
+  const newEdits = {};
+  Object.entries(S.edits).forEach(([k, v]) => {
+    const parts = k.split('|');
+    let cur = +parts[0];
+    if (cur === from){
+      cur = target;
+    } else if (from < target && cur > from && cur <= target){
+      cur--;
+    } else if (from > target && cur >= target && cur < from){
+      cur++;
+    }
+    newEdits[cur + '|' + parts[1] + '|' + parts[2]] = v;
+  });
+  S.edits = newEdits;
+
+  if (sel === from) sel = target;
+  else if (from < target && sel > from && sel <= target) sel--;
+  else if (from > target && sel >= target && sel < from) sel++;
+
+  render();
+  select(sel);
+}
 
 // ---- 欄寬拖曳 ----
 function colWidths(side){
@@ -976,6 +1024,39 @@ doc.addEventListener('pointermove', e => {
     S.h[drag.i] = Math.max(4, Math.round((drag.h0 + (e.clientY - drag.y) / S.zoom / PT / S.k) * 10) / 10);
     applyH(drag.i); return;
   }
+  if (rowDrag){
+    if (!rowDrag.active){
+      if (Math.hypot(e.clientX - rowDrag.startX, e.clientY - rowDrag.startY) > 6){
+        rowDrag.active = true;
+        document.body.classList.add('row-dragging');
+        document.querySelectorAll(`tr[data-i="${rowDrag.startI}"]`).forEach(tr => tr.classList.add('dragging'));
+      }
+    }
+    if (rowDrag.active){
+      const elements = document.elementsFromPoint(e.clientX, e.clientY);
+      let targetTr = null;
+      for (const el of elements){
+        const tr = el.closest && el.closest('tr[data-i]');
+        if (tr){ targetTr = tr; break; }
+      }
+      document.querySelectorAll('tr.drag-target-before, tr.drag-target-after').forEach(t => {
+        t.classList.remove('drag-target-before', 'drag-target-after');
+      });
+      if (targetTr){
+        const targetI = +targetTr.dataset.i;
+        const rect = targetTr.getBoundingClientRect();
+        const pos = (e.clientY - rect.top) < (rect.height / 2) ? 'before' : 'after';
+        rowDrag.targetI = targetI;
+        rowDrag.pos = pos;
+        document.querySelectorAll(`tr[data-i="${targetI}"]`).forEach(t => {
+          t.classList.add(pos === 'before' ? 'drag-target-before' : 'drag-target-after');
+        });
+      } else {
+        rowDrag.targetI = null;
+      }
+      return;
+    }
+  }
   const ce = findColEdge(e);
   if (ce){ doc.style.cursor = 'col-resize'; return; }
   const tr = e.target.closest('tr[data-i]');
@@ -994,11 +1075,24 @@ doc.addEventListener('pointerdown', e => {
   if ((tr.getBoundingClientRect().bottom - e.clientY) < 5 * S.zoom){
     drag = {i, y: e.clientY, h0: S.h[i]};
     e.preventDefault(); doc.setPointerCapture(e.pointerId);
+  } else if (!S.editing){
+    rowDrag = {startI: i, startX: e.clientX, startY: e.clientY, active: false, targetI: null, pos: null};
+    doc.setPointerCapture(e.pointerId);
   }
 });
 doc.addEventListener('pointerup', () => {
   if (colDrag){ colDrag = null; render(); return; }
-  if (drag){ drag = null; render(); }
+  if (drag){ drag = null; render(); return; }
+  if (rowDrag){
+    document.body.classList.remove('row-dragging');
+    document.querySelectorAll('tr.dragging, tr.drag-target-before, tr.drag-target-after').forEach(t => {
+      t.classList.remove('dragging', 'drag-target-before', 'drag-target-after');
+    });
+    if (rowDrag.active && rowDrag.targetI != null){
+      moveRow(rowDrag.startI, rowDrag.targetI, rowDrag.pos);
+    }
+    rowDrag = null;
+  }
 });
 doc.addEventListener('dblclick', e => {
   const tr = e.target.closest('tr[data-i]'); if (!tr) return;
@@ -1006,6 +1100,14 @@ doc.addEventListener('dblclick', e => {
 });
 document.addEventListener('keydown', e => {
   if (!D || e.target.tagName === 'INPUT' || sel < 0) return;
+  if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')){
+    e.preventDefault();
+    const target = e.key === 'ArrowUp' ? sel - 1 : sel + 1;
+    if (target >= 0 && target < D.rows.length){
+      moveRow(sel, target, e.key === 'ArrowUp' ? 'before' : 'after');
+    }
+    return;
+  }
   if (e.key === 'ArrowUp' || e.key === 'ArrowDown'){
     S.h[sel] = Math.max(4, S.h[sel] + (e.key === 'ArrowUp' ? -1 : 1) * (e.shiftKey ? 5 : 1));
     applyH(sel); e.preventDefault();
