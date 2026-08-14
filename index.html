@@ -93,36 +93,36 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
 
 <div id="bar" class="hide">
   <b id="fname"></b>
-  <label>分欄<select id="split"></select></label>
-  <label>縮放<input type="range" id="k" min="0.5" max="1.2" step="0.005"><span id="kv"></span></label>
+  <label title="選擇左右頁的分界欄位，左邊的欄歸左頁、右邊的歸右頁">分欄<select id="split"></select></label>
+  <label title="Excel 的列印縮放比例，影響文字和框線的實際大小">縮放<input type="range" id="k" min="0.5" max="1.2" step="0.005"><span id="kv"></span></label>
   <label title="每一列額外墊高，等於拉開它跟下一列之間的距離；全部頁面一起套用">
     列間距<input type="range" id="gap" min="0" max="24" step="0.5"><span id="gapv"></span></label>
-  <label>行距<input type="range" id="lh" min="0.9" max="2" step="0.05"><span id="lhv"></span></label>
-  <label>字級<input type="range" id="fs" min="0.7" max="1.4" step="0.01"><span id="fsv"></span></label>
-  <label>天地線高<input type="number" id="sh" step="0.5">mm</label>
-  <label title="末頁表格含合計與備註的總高；勾選＝跟著天地線高走，備註底部自動對齊其他頁的地線">
+  <label title="CSS 行距，影響同一格內多行文字之間的距離">行距<input type="range" id="lh" min="0.9" max="2" step="0.05"><span id="lhv"></span></label>
+  <label title="字級倍率，1 = 原始大小；調大字會變大但可能溢出格子">字級<input type="range" id="fs" min="0.7" max="1.4" step="0.01"><span id="fsv"></span></label>
+  <label title="表頭天線到地線之間的總高（mm）。這個值決定每頁能塞多少資料列：&#10;• 資料列不夠填滿時，地線會靠一列空白列撐到這個位置&#10;• 資料列太多時會自動分頁&#10;• 預設值 = 紙張高 − 上下邊界 − 標題區高度&#10;• 所有頁面共用同一個值，地線才會對齊">天地線高<input type="number" id="sh" step="0.5">mm</label>
+  <label title="勾選：末頁的天地線高跟其他頁一樣，合計與備註會被包在這個高度裡，備註底部自然對齊其他頁的地線。&#10;不勾：末頁可以用獨立的高度值（右邊的數字），不受其他頁牽制。">
     <input type="checkbox" id="linkend">末頁備註底對齊地線
     <input type="number" id="shend" step="0.5">mm</label>
-  <label>檢視<input type="range" id="zm" min="0.3" max="1.5" step="0.05"></label>
-  <button id="bview" title="切換顯示模式：配合頁高 / 配合頁寬">配高</button>
-  <label>本列高<input type="number" id="rh" step="0.5" disabled>pt</label>
-  <button id="bfit">選取列配高</button>
+  <label title="畫面檢視縮放，不影響列印，只影響螢幕上看到的大小">檢視<input type="range" id="zm" min="0.3" max="1.5" step="0.05"></label>
+  <button id="bview" title="切換顯示模式：滿高（一頁剛好塞滿視窗高度）/ 滿寬（對開塞滿視窗寬度）/ 自訂（手動拉檢視滑桿）">滿高</button>
+  <label title="目前選取列的高度（pt），可直接輸入數字修改">本列高<input type="number" id="rh" step="0.5" disabled>pt</label>
+  <button id="bfit" title="把目前選取的那一列壓到文字實際需要的最小高度">選取列配高</button>
   <button id="bfitpage" title="只把這一頁的每一列壓到文字實際需要的高度">本頁配高</button>
-  <button id="bfitall">全部配高</button>
-  <button id="bhtml">HTML 重排</button>
+  <button id="bfitall" title="把所有頁面的每一列都壓到文字實際需要的最小高度">全部配高</button>
+  <button id="bhtml" title="忽略 Excel 原始列高與分頁，全部依內容重新排版（要回原樣按「重設」）">HTML 重排</button>
   <button id="beven" title="把該頁剩下的空白平均加到每一列，看起來不會上密下空">本頁均分</button>
-  <button id="bevenall">各頁均分</button>
-  <button id="bbrk">此列前分頁 (B)</button>
-  <button id="bauto">清掉全部手動分頁</button>
-  <label><input type="checkbox" id="push">依列高自動分頁（前後流動）</label>
+  <button id="bevenall" title="每一頁都把剩餘空白平均加到每一列">各頁均分</button>
+  <button id="bbrk" title="在目前選取列之前插入手動分頁（快捷鍵 B），再按一次取消">此列前分頁 (B)</button>
+  <button id="bauto" title="清掉所有手動分頁點，改成完全照列高自動流動分頁">清掉全部手動分頁</button>
+  <label title="打勾後分頁會依列高自動計算，列高改變時頁面會重新流動"><input type="checkbox" id="push">依列高自動分頁（前後流動）</label>
   <label title="打開後可直接點資料格改字，改完會自動重新配高；原檔用來對齊的白色補位字會顯示成灰色，方便刪掉">
     <input type="checkbox" id="edit">編輯內容</label>
   <button id="bxlsx" title="把調好的列高與分頁寫回 xlsx，其餘內容原封不動，可回 Excel 再微調">匯出 xlsx</button>
-  <button id="bsave">匯出設定</button>
-  <button id="bload">匯入設定</button>
-  <button id="breset">重設</button>
-  <button id="bnew">換檔案</button>
-  <button id="bprint">列印 / 存 PDF</button>
+  <button id="bsave" title="把目前的列高、分頁、縮放等設定匯出成 JSON 檔，下次可匯入還原">匯出設定</button>
+  <button id="bload" title="匯入之前匯出的 JSON 設定檔，還原列高、分頁等設定">匯入設定</button>
+  <button id="breset" title="回到 Excel 原始的列高與分頁，放棄所有調整">重設</button>
+  <button id="bnew" title="關閉目前的檔案，回到拖曳載入畫面換一個檔案">換檔案</button>
+  <button id="bprint" title="開啟瀏覽器的列印對話框，可以直接印出或存成 PDF">列印 / 存 PDF</button>
   <span id="hint">單列調高：拖該列下緣，或點選後用 ↑↓ (Shift×5)／直接填「本列高」｜雙擊＝該列自動配高｜左右頁同一列永遠同高</span>
 </div>
 
@@ -1132,7 +1132,7 @@ function applyViewMode(){
 function updateViewBtn(){
   const b = $('bview');
   const mode = S.viewMode || 'fitH';
-  b.textContent = mode === 'fitH' ? '配高' : mode === 'fitW' ? '配寬' : '自訂';
+  b.textContent = mode === 'fitH' ? '滿高' : mode === 'fitW' ? '滿寬' : '自訂';
   b.classList.toggle('active', mode !== 'manual');
 }
 $('bview').onclick = () => {
