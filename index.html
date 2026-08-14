@@ -1833,7 +1833,34 @@ $('bsave').onclick = () => {
 };
 $('bload').onclick = () => {
   const f = el('input'); f.type = 'file'; f.accept = '.json';
-  f.onchange = () => f.files[0].text().then(t => { S = Object.assign({}, dflt, JSON.parse(t)); bind(); render(); });
+  f.onchange = () => f.files[0].text().then(t => {
+    let v;
+    try { v = JSON.parse(t); } catch (e){ alert('這不是有效的設定檔（JSON 解析失敗）'); return; }
+    const next = Object.assign({}, dflt, v);
+
+    // S.h 是「第 n 個資料列的高度」，靠陣列位置對應。設定檔如果是從別的檔案、
+    // 別的列印範圍或別的表頭列數存下來的，資料列數就不一樣，直接套上去會整份錯位。
+    if (!Array.isArray(next.h) || next.h.length !== D.rows.length){
+      const had = Array.isArray(v.h) ? v.h.length : '未知';
+      if (!confirm(`設定檔記錄了 ${had} 個資料列，目前的表格有 ${D.rows.length} 個。\n\n`
+                 + '列高與分頁會對不起來（通常是範圍或「表頭到 N 列」跟當初不同）。\n\n'
+                 + '按「確定」＝放棄設定檔裡的列高、分頁與編輯，只套用字型、縮放等全域設定；\n'
+                 + '按「取消」＝不匯入。')) return;
+      next.h = dflt.h.slice();
+      next.breaks = dflt.breaks.slice();
+      next.edits = {};
+      next.rowBorders = {};
+    }
+    // 合計／備註列數也可能不同
+    if (!Array.isArray(next.footH) || next.footH.length !== D.foot.length) next.footH = D.foot.map(r => r.h);
+    // 分頁點必須落在有效範圍內
+    next.breaks = [...new Set((next.breaks || []).filter(i => i > 0 && i < D.rows.length))].sort((a,b) => a-b);
+
+    S = next;
+    undoStack = []; redoStack = []; lastSnap = null;   // 換了一整組設定，復原歷史重來
+    sel = -1;
+    bind(); render(); store.set(S);
+  });
   f.click();
 };
 // 網頁無法指定列印目的地（瀏覽器安全限制，沒有 API 可以設定），
