@@ -630,6 +630,9 @@ function buildModel(x){
     if (xf.h === 'distributed' && t) t = distribute(t);
     const m = x.merges[r + ',' + c] || [1,1];
     const o = {t, c: cls(ref, nohz, nobd, mergedBorder(r, c, m[0], m[1])), col: c};
+    // Excel 裡不換行的靠左文字會溢到右邊的空格子上（「二、一般建築及設備計畫」放在 C 欄、
+    // D E 空著就是這種）。標記候選，實際會不會溢由 pack() 看隔壁有沒有東西決定。
+    if (!xf.wrap && (!xf.h || xf.h === 'left') && !/\n/.test(t)) o.nw = true;
     if (VAL[xf.v]) o.v = VAL[xf.v];
     if (m[0] > 1) o.rs = m[0];
     if (m[1] > 1) o.cs = m[1];
@@ -638,9 +641,18 @@ function buildModel(x){
 
   const rowh = r => Math.round((x.rowH[r] || x.defRowH) * 100) / 100;
   const plain = t => t.replace(/<[^>]*>/g, '').replace(/[\s\u3000]/g, '');
+  // 有內容、可外溢、而且右邊那格是空的 → 讓文字畫出格子外，跟 Excel 一致
+  const markSpill = arr => {
+    arr.forEach((c, i) => {
+      const nxt = arr[i + 1];
+      if (c.nw && plain(c.t) && nxt && !plain(nxt.t)) c.spill = true;
+      delete c.nw;
+    });
+    return arr;
+  };
   const pack = (rows, nohz, nobd) => rows.map(r => {
-    const l = halves.l.map(c => cell(r, c, nohz, nobd)).filter(Boolean);
-    const rr = halves.r.map(c => cell(r, c, nohz, nobd)).filter(Boolean);
+    const l = markSpill(halves.l.map(c => cell(r, c, nohz, nobd)).filter(Boolean));
+    const rr = markSpill(halves.r.map(c => cell(r, c, nohz, nobd)).filter(Boolean));
     return {
       h: rowh(r), l, r: rr,
       ind: xfOf(colName(halves.l[0]) + r).indent || 0,   // 縮排層級，用來認出群組標題
@@ -1101,6 +1113,8 @@ function cellEl(tag, c, h, i, side, ci){
     w.style.textAlignLast = 'justify';
     w.style.whiteSpace = 'pre-wrap';
   }
+
+  if (c.spill) w.style.overflow = 'visible';   // 文字溢到右邊的空格子上
 
   colBorder(td, c.col);
 
