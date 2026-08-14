@@ -87,12 +87,16 @@ tr.sel>td{background:#fff6cc}
   <label>行距<input type="range" id="lh" min="0.9" max="2" step="0.05"><span id="lhv"></span></label>
   <label>字級<input type="range" id="fs" min="0.7" max="1.4" step="0.01"><span id="fsv"></span></label>
   <label>天地線高<input type="number" id="sh" step="0.5">mm</label>
-  <label>末頁地線<input type="number" id="shend" step="0.5">mm</label>
+  <label title="末頁表格含合計與備註的總高；勾選＝跟著天地線高走，備註底部自動對齊其他頁的地線">
+    <input type="checkbox" id="linkend">末頁備註底對齊地線
+    <input type="number" id="shend" step="0.5">mm</label>
   <label>檢視<input type="range" id="zm" min="0.3" max="1.5" step="0.05"></label>
   <label>本列高<input type="number" id="rh" step="0.5" disabled>pt</label>
   <button id="bfit">選取列配高</button>
   <button id="bfitall">全部配高</button>
   <button id="bhtml">HTML 重排</button>
+  <button id="beven" title="把該頁剩下的空白平均加到每一列，看起來不會上密下空">本頁均分</button>
+  <button id="bevenall">各頁均分</button>
   <button id="bbrk">此列前分頁 (B)</button>
   <button id="bauto">清掉全部手動分頁</button>
   <label><input type="checkbox" id="push">依列高自動分頁（前後流動）</label>
@@ -473,7 +477,7 @@ function start(model){
   footPt  = D.foot.reduce((s,r) => s + r.h, 0);
   const shDflt = +((D.page.h - D.page.mt - D.page.mb) - titlePt * D.k / 72 * 25.4).toFixed(1);
   dflt = {h: D.rows.map(r => r.h), breaks: D.breaks.slice(),
-          lh: 1.15, fs: 1, zoom: .5, k: D.k, push: true, sh: shDflt, shend: shDflt};
+          lh: 1.15, fs: 1, zoom: .5, k: D.k, push: true, sh: shDflt, shend: shDflt, linkEnd: true};
   const saved = store.get();
   S = Object.assign({}, dflt, saved);
   // Object.assign 只複製陣列參照，不切一份的話改列高會把 dflt 一起改掉，「重設」就救不回來
@@ -494,13 +498,32 @@ function start(model){
   if (firstTime) htmlLayout();
 }
 
+// 把一頁剩下的空白平均分給該頁每一列，讓行距看起來一致，不會上面擠、下面一大塊空白。
+// 無條件捨去到 0.1pt，確保加完的總高不會反而超過容量、害最後一列被擠到下一頁。
+function evenOut(all){
+  const pg = pages();
+  const targets = all ? pg.map((idx,n) => [idx, n === pg.length-1])
+                      : pg.map((idx,n) => [idx, n === pg.length-1]).filter(([idx]) => idx.includes(sel));
+  if (!targets.length){ alert('先點選要調整的那一頁裡的任一列'); return; }
+  targets.forEach(([idx, last]) => {
+    const add = (capOf(last) - idx.reduce((s,i) => s + S.h[i], 0)) / idx.length;
+    if (add > 0) idx.forEach(i => S.h[i] = Math.floor((S.h[i] + add) * 10) / 10);
+  });
+  render();
+}
+
 function htmlLayout(){
   D.rows.forEach((_,i) => fit(i));   // 每列壓到左右頁文字實際需要的高度
   S.breaks = [];                     // 分頁交給高度決定，不沿用原檔的
   render();
 }
 
-const capOf = last => ((last ? S.shend : S.sh) * 72 / 25.4) / S.k - headPt - (last ? footPt : 0);
+// 末頁的表格總高含合計＋備註。跟著 sh 走時，備註底部就會落在其他頁地線的同一條線上，
+// 末頁的地線（合計下框線）自動被備註的高度往上頂。
+const endH = () => S.linkEnd ? S.sh : S.shend;
+// 減 2pt：分頁是照列高數字算的，實際渲染還會多出框線厚度，不留餘裕會有頁面剛好擠爆、
+// 填空列被壓成 0，那一頁的地線就會比別頁低個 0.3mm
+const capOf = last => (((last ? endH() : S.sh) * 72 / 25.4) - 2) / S.k - headPt - (last ? footPt : 0);
 const mmOf = h => h * S.k / 72 * 25.4;
 
 function cellEl(tag, c, h){
@@ -600,8 +623,10 @@ function render(){
     const sp = el('div','spread'), last = n === pg.length - 1;
     const L = makePage(idx,'l',n*2+1,last,n===0), R = makePage(idx,'r',n*2+2,last,n===0);
     sp.append(L,R); doc.appendChild(sp);
-    const target = (last ? S.shend : S.sh) * MM;
-    const slack = Math.min(target - L._tb.offsetHeight, target - R._tb.offsetHeight);
+    const target = (last ? endH() : S.sh) * MM;
+    // offsetHeight 是整數像素，會讓各頁地線差個 0.2mm；用 rect 的浮點高度（要除掉檢視縮放）
+    const th = p => p._tb.getBoundingClientRect().height / S.zoom;
+    const slack = Math.min(target - th(L), target - th(R));
     [L,R].forEach(p => p._fill.style.height = Math.max(0, slack) + 'px');
     // capOf(true) 已經扣掉合計＋附註，這裡只算資料列，不然會重複計
     const used = idx.reduce((s,i) => s + S.h[i], 0), cap = capOf(last);
@@ -729,6 +754,8 @@ $('bauto').onclick = () => {
 };
 $('push').onchange = e => { S.push = e.target.checked; render(); };
 $('bhtml').onclick = htmlLayout;
+$('beven').onclick = () => evenOut(false);
+$('bevenall').onclick = () => evenOut(true);
 $('breset').onclick = () => { if (confirm('回到 Excel 原始列高與分頁？')){ S = JSON.parse(JSON.stringify(dflt)); bind(); render(); } };
 $('bsave').onclick = () => {
   const a = el('a');
@@ -744,15 +771,20 @@ $('bprint').onclick = () => window.print();
 
 function bind(){
   $('lh').value = S.lh; $('fs').value = S.fs; $('sh').value = S.sh;
-  $('shend').value = S.shend; $('zm').value = S.zoom; $('k').value = S.k;
-  $('push').checked = S.push; setVar();
+  $('zm').value = S.zoom; $('k').value = S.k;
+  $('push').checked = S.push;
+  $('linkend').checked = S.linkEnd;
+  $('shend').disabled = S.linkEnd;
+  $('shend').value = endH();
+  setVar();
 }
 const redraw = () => { clearTimeout(window._r); window._r = setTimeout(render, 150); };
 $('k').oninput  = e => { S.k = +e.target.value; setVar(); redraw(); };
 $('lh').oninput = e => { S.lh = +e.target.value; setVar(); redraw(); };
 $('fs').oninput = e => { S.fs = +e.target.value; setVar(); redraw(); };
-$('sh').onchange = e => { S.sh = +e.target.value; render(); };
+$('sh').onchange = e => { S.sh = +e.target.value; bind(); render(); };
 $('shend').onchange = e => { S.shend = +e.target.value; render(); };
+$('linkend').onchange = e => { S.linkEnd = e.target.checked; bind(); render(); };
 $('zm').oninput = e => { S.zoom = +e.target.value; setVar(); };
 </script>
 </body>
