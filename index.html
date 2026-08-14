@@ -1970,7 +1970,7 @@ function audit(){
   const info = rows.map(r => {
     const lc = all(r, rowKey.get(r)).filter(o => (r.l || []).includes(o.c))
                  .find(o => text(o) && numb(o) === null);
-    return {row: r, label: lc ? text(lc).replace(/[\s　]/g, '') : '', key: lc ? (lc.col * 100 + (lc.c.ind || 0)) : null};
+    return {row: r, label: lc ? text(lc).replace(/[\s　]/g, '') : '', key: lc ? (lc.col * 1000 + (lc.c.ind || 0)) : null};   // 1000 進位，縮排再深也不會跟下一欄相撞
   });
   const keys = [...new Set(info.filter(i => i.key != null).map(i => i.key))].sort((a,b) => a-b);
   if (!keys.length){ alert('找不到可判斷階層的資料列。'); return; }
@@ -1994,13 +1994,13 @@ function audit(){
   // 每一層 = Σ 下一層
   for (let L = 0; L < keys.length - 1; L++){
     const par = info.map((it,k) => ({it,k})).filter(o => o.it.lv === L);
-    let bad = 0, checked = 0, skip = 0;
+    let bad = 0, checked = 0, skip = 0, nokid = 0;
     par.forEach((p, j) => {
       const end = j + 1 < par.length ? par[j+1].k : info.length;
       const blk = info.slice(p.k + 1, end);
       if (blk.some(i => i.lv == null)){ skip++; return; }   // 區塊裡有認不出層級的列，跳過不誤報
       const kids = blk.filter(i => i.lv === L + 1).map(i => i.row);
-      if (!kids.length) return;
+      if (!kids.length){ nokid++; return; }   // 底下沒有恰好下一層的項目，這組沒被檢查
       cols.forEach(col => {
         checked++; done++;
         const d = sum(kids, col) - val(p.it.row, col);
@@ -2012,7 +2012,8 @@ function audit(){
     });
     skipped += skip;
     const nm = `${NAME[L] || ('第'+L+'層')} = Σ ${NAME[L+1] || ('第'+(L+1)+'層')}`;
-    if (checked && !bad) out.push(`✓ ${nm}（${par.length - skip} 組、${checked} 個欄位全部相符）`);
+    if (checked && !bad) out.push(`✓ ${nm}（${par.length - skip - nokid} 組、${checked} 個欄位全部相符）`
+      + (nokid ? `，另 ${nokid} 組底下沒有下一層、未檢查` : ''));
     else if (bad > 4) out.push(`  …「${nm}」另有 ${bad - 4} 項未列出`);
     else if (!checked) out.push(`－ ${nm}：找不到可比對的層級`);
   }
