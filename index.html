@@ -955,7 +955,10 @@ function evenOut(all){
       fit(i);
       S.h[i] = multi.has(i) ? S.h[i] + extra : Math.max(S.h[i], one);
     });
-    // 剩下的空白再平均分給所有列（空白間隔列除外）
+    // 剩下的空白再平均分給所有列（空白間隔列除外）。
+    // 末頁例外：資料通常只有幾列，把整頁空白攤下去會把每列撐得極高，
+    // 所以末頁只做各就各位，多出來的空白留在下方由填空列吸收。
+    if (last) return;
     const pool = idx.filter(i => !D.rows[i].blank);
     const use = pool.length ? pool : idx;
     const add = (capOf(last) - idx.reduce((s,i) => s + rh(i), 0)) / use.length;
