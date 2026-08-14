@@ -211,6 +211,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
   <span class="grp">
     <span class="grp-title">檔案</span>
     <button id="bprint" title="開啟瀏覽器的列印對話框，可以直接印出或存成 PDF">列印 / 存 PDF</button>
+    <label title="分散對齊的格子原本是一個字一個元素（字距最準），存成 PDF 後在編輯器裡一字一塊、幾乎不能編。&#10;打勾改用 CSS 兩端對齊，整格是一段連續文字、PDF 編得動，字距由瀏覽器決定、可能跟 Excel 略有差異。"><input type="checkbox" id="pdftext">PDF 文字可編輯</label>
     <button id="bxlsx" title="把調好的列高與分頁寫回 xlsx，其餘內容原封不動，可回 Excel 再微調">匯出 xlsx</button>
     <button id="bsave" title="把目前的列高、分頁、縮放等設定匯出成 JSON 檔，下次可匯入還原">匯出設定</button>
     <button id="bload" title="匯入之前匯出的 JSON 設定檔，還原列高、分頁等設定">匯入設定</button>
@@ -1025,6 +1026,16 @@ function cellEl(tag, c, h, i, side, ci){
     td.style.borderTop    = rb === 'top'  || rb === 'both' ? linePx() : 'none';
     td.style.borderBottom = rb === 'bottom' || rb === 'both' ? linePx() : 'none';
   }
+  // PDF 可編輯：分散對齊原本是每個字包一個 <i>，靠 flex 推開才能在各家瀏覽器得到一致的字距。
+  // 代價是列印成 PDF 後，那一格的每個字都是獨立元素，在 PDF 編輯器裡幾乎動不了。
+  // 開這個選項就改用 CSS 兩端對齊，整格維持一段連續文字，字距交給瀏覽器（可能略有差異）。
+  if (S.pdfText && /class="dl"/.test(t || '')){
+    t = t.replace(/<[^>]*>/g, '');
+    w.style.textAlign = 'justify';
+    w.style.textAlignLast = 'justify';
+    w.style.whiteSpace = 'pre-wrap';
+  }
+
   colBorder(td, c.col);
 
   // 「（一）計畫名稱……」換行後，第二行起自動對齊到右括號後面（凸排）。
@@ -1812,6 +1823,7 @@ $('bload').onclick = () => {
   f.click();
 };
 $('bprint').onclick = () => window.print();
+$('pdftext').onchange = e => { S.pdfText = e.target.checked; render(); store.set(S); };
 $('bundo').onclick = undo;
 $('bredo').onclick = redo;
 
@@ -1830,6 +1842,7 @@ function bind(){
   $('bpt').value = linePt();
   $('hgap').value = S.headGap || 0;
   $('oneh').value = S.oneLineH != null ? S.oneLineH : 20;
+  $('pdftext').checked = !!S.pdfText;
   $('hdrLast').value = D.hdrLast;
   $('parea').value = D.area;
   populateFootSelect();
