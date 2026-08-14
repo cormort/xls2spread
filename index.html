@@ -722,8 +722,8 @@ const endH = () => S.linkEnd ? S.sh : S.shend;
 // 也不會被自動配高洗掉。內容靠上對齊，多出來的高度就成為和下一列之間的距離。
 const rh = i => S.h[i] + S.gap;
 // 減 2pt：分頁是照列高數字算的，實際渲染還會多出框線厚度，不留餘裕會有頁面剛好擠爆、
-// 填空列被壓成 0，那一頁的地線就會比別頁低個 0.3mm
-const capOf = last => (((last ? endH() : S.sh) * 72 / 25.4) - 2) / S.k - headPt - (last ? footPt : 0);
+// 填空列被壓成 0，那一頁的地線就會比別頁低個 0.3mm；加 Math.max(10, ...) 避免負數引發死循環
+const capOf = last => Math.max(10, (((last ? endH() : S.sh) * 72 / 25.4) - 2) / S.k - headPt - (last ? footPt : 0));
 const mmOf = h => h * S.k / 72 * 25.4;
 
 function cellEl(tag, c, h){
@@ -762,7 +762,7 @@ function paginate(guard){
     cur.push(i); acc += h;
   });
   if (cur.length) out.push(cur);
-  for (let g = 0; S.push && g < 50; g++){
+  for (let g = 0; S.push && g < 50 && out.length <= D.rows.length + 5; g++){
     const lp = out[out.length-1], cl = capOf(true), moved = [];
     while (lp.length > 1 && lp.reduce((s,i) => s + rh(i), 0) > cl) moved.unshift(lp.pop());
     if (!moved.length) break;
@@ -1181,11 +1181,31 @@ doc.addEventListener('keydown', e => {
 // 編輯中不要觸發拖曳改列高／選取列
 doc.addEventListener('pointerdown', e => { if (S.editing) e.stopPropagation(); }, true);
 
+function resetToDefault(){
+  if (!RAW) return;
+  delete RAW._splitOverride;
+  if (KEY) localStorage.removeItem(KEY);
+  const model = buildModel(RAW);
+  D = model;
+  titlePt = D.title.reduce((s,r) => s + r.h, 0);
+  headPt  = D.head.reduce((s,r) => s + r.h, 0);
+  footPt  = D.foot.reduce((s,r) => s + r.h, 0);
+  const shDflt = +((D.page.h - D.page.mt - D.page.mb) - titlePt * D.k / 72 * 25.4).toFixed(1);
+  dflt = {h: D.rows.map(r => r.h), breaks: D.breaks.slice(),
+          lh: 1.15, fs: 1, zoom: .5, k: D.k, push: false, sh: shDflt, shend: shDflt, linkEnd: true, gap: 0, edits: {},
+          colWidths: null, viewMode: 'fitH'};
+  S = JSON.parse(JSON.stringify(dflt));
+  sel = -1;
+  populateSplitSelect();
+  bind();
+  render();
+}
+
 $('bxlsx').onclick = exportXlsx;
 $('bhtml').onclick = htmlLayout;
 $('beven').onclick = () => evenOut(false);
 $('bevenall').onclick = () => evenOut(true);
-$('breset').onclick = () => { if (confirm('回到 Excel 原始列高與分頁？')){ S = JSON.parse(JSON.stringify(dflt)); bind(); render(); } };
+$('breset').onclick = () => { if (confirm('回到 Excel 原始列高與分頁？')){ resetToDefault(); } };
 $('bsave').onclick = () => {
   const a = el('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(S)], {type:'application/json'}));
