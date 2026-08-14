@@ -220,7 +220,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <span class="grp-title">檔案</span>
     <button id="bprint" title="開啟瀏覽器的列印對話框。&#10;目的地務必選「另存為 PDF」，選成 Right PDF／Adobe PDF 等印表機會讓整頁變圖片、PDF 裡沒有文字。">列印 / 存 PDF</button>
     <label title="分散對齊的格子原本是一個字一個元素（字距最準），存成 PDF 後在編輯器裡一字一塊、幾乎不能編。&#10;打勾改用 CSS 兩端對齊，整格是一段連續文字、PDF 編得動，字距由瀏覽器決定、可能跟 Excel 略有差異。"><input type="checkbox" id="pdftext">PDF 文字可編輯</label>
-    <button id="bcheck" title="用目前畫面上的數字重新核對：&#10;• 總計 = 各主管之和&#10;• 主管 = 各基金（公司）之和&#10;• 基金（公司）= 各計畫之和&#10;百分比欄會自動排除。">驗算</button>
+    <button id="bcheck" title="用目前畫面上的數字重新核對：&#10;【階層】總計 = Σ主管 → 主管 = Σ基金（公司）→ 基金 = Σ大分類 → 大分類 = Σ各計畫&#10;【交叉】比照原檔 sumif：各「◯◯主管」加總、計畫別合計（一般建築及設備＋繼續＋新興）都要等於總計&#10;百分比欄自動排除。">驗算</button>
     <button id="bcheck2" title="讀原檔裡「差異數」那幾列（通常放在列印範圍外的 sumif 檢誤區），檢查是不是全部為 0。&#10;那是 Excel 存檔時算好的值，本工具不重算公式。">原檔檢誤</button>
     <button id="bxlsx" title="把調好的列高與分頁寫回 xlsx，其餘內容原封不動，可回 Excel 再微調">匯出 xlsx</button>
     <button id="bsave" title="把目前的列高、分頁、縮放等設定匯出成 JSON 檔，下次可匯入還原">匯出設定</button>
@@ -2019,6 +2019,29 @@ function audit(){
     else if (bad > 4) out.push(`  …「${nm}」另有 ${bad - 4} 項未列出`);
     else if (!checked) out.push(`－ ${nm}：找不到可比對的層級`);
   }
+
+  // ---- 交叉檢查：比照原檔 sumif 檢誤的作法，不看階層、改用標籤字樣加總。
+  // 階層判斷若出錯（縮排跑掉、列被搬到別層），這裡會抓到；兩者互為驗證。
+  // 只留在兩種表別都成立的兩條，「Σ含基金」「分年性+一次性」等只對單一表別成立的不納入。
+  const hit = re => info.filter(i => re.test(i.label));
+  const cross = [
+    ['各「◯◯主管」加總', [/主管$/]],
+    ['計畫別合計（一般建築及設備＋繼續＋新興）', [/一般建築及設備計畫$/, /繼續計畫$/, /新興計畫$/]]
+  ];
+  cross.forEach(([nm, res]) => {
+    const rs = res.flatMap(re => hit(re));
+    if (!rs.length){ out.push(`－ ${nm}：找不到符合的列，未檢查`); return; }
+    let bad = 0;
+    cols.forEach(col => {
+      done++;
+      const d = sum(rs.map(i => i.row), col) - val(total, col);
+      if (Math.abs(d) > 0.5){
+        bad++; fail++;
+        if (bad <= 3) out.push(`✗ ${nm} ${colName(col)} 欄：加總 ${fmt(sum(rs.map(i=>i.row),col))}、總計列 ${fmt(val(total,col))}，差 ${fmt(d)}`);
+      }
+    });
+    if (!bad) out.push(`✓ ${nm} = 總計（${rs.length} 列、${cols.length} 個金額欄全部相符）`);
+  });
 
   alert((fail ? `⚠ ${fail} 項不符（共檢查 ${done} 項）\n\n` : `✅ 全部通過（共檢查 ${done} 項）\n\n`)
     + out.join('\n')
