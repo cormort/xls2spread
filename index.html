@@ -1927,36 +1927,50 @@ function resetToDefault(){
    已用兩份實際檔案驗證：所有層級、所有金額欄零誤差、零誤報。 */
 const txtOf = c => (c && c.t || '').replace(/<[^>]*>/g, '')
   .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').trim();
-const numOf = c => {
-  const t = txtOf(c).replace(/,/g, '');
-  return t !== '' && isFinite(t) ? +t : null;
+const numText = t => {
+  const v = String(t == null ? '' : t).replace(/,/g, '').trim();
+  return v !== '' && isFinite(v) ? +v : null;
 };
+const numOf = c => numText(txtOf(c));
 
 function audit(){
   if (!D || !D.rows.length){ alert('先載入檔案'); return; }
   if (!D.foot.length){ alert('找不到總計／合計列，無法比對。\n可用「表頭到 N 列」與「範圍」確認表格結構。'); return; }
 
-  const all = row => (row.l || []).concat(row.r || []);
+  // 一定要走 S.edits，否則使用者在畫面上改過的數字驗算會看不到（讀 c.t 只是原檔內容）。
+  // key 的規則跟 render／匯出一致：資料列是「列索引|side|欄索引」，合計備註列是「f<k>|side|欄索引」。
+  const all = (row, rk) => [
+    ...(row.l || []).map((c, ci) => ({c, col: c.col, key: `${rk}|l|${ci}`})),
+    ...(row.r || []).map((c, ci) => ({c, col: c.col, key: `${rk}|r|${ci}`}))
+  ];
+  const text = o => { const e = S.edits[o.key]; return e != null ? String(e).trim() : txtOf(o.c); };
+  const numb = o => numText(text(o));
+  const rowKey = new Map();
+  D.rows.forEach((r, i) => rowKey.set(r, i));
+  D.foot.forEach((r, k) => rowKey.set(r, 'f' + k));
+  const cellsOf = row => all(row, rowKey.get(row));
+
   const total = D.foot[0];
 
   // 百分比欄不能加總，從表頭文字認出來排除
   const pct = new Set();
-  D.head.forEach(r => all(r).forEach(c => {
+  D.head.forEach(r => (r.l || []).concat(r.r || []).forEach(c => {
     if (/[%％]/.test(txtOf(c))) for (let k = 0; k < (c.cs || 1); k++) pct.add(c.col + k);
   }));
-  const cols = all(total).filter(c => numOf(c) !== null && !pct.has(c.col)).map(c => c.col);
+  const cols = cellsOf(total).filter(o => numb(o) !== null && !pct.has(o.col)).map(o => o.col);
   if (!cols.length){ alert('總計列裡找不到可比對的金額欄。'); return; }
 
-  const at = (row, col) => all(row).find(c => c.col === col);
-  const val = (row, col) => { const c = at(row, col); return c ? (numOf(c) || 0) : 0; };
+  const at = (row, col) => cellsOf(row).find(o => o.col === col);
+  const val = (row, col) => { const o = at(row, col); return o ? (numb(o) || 0) : 0; };
   const sum = (rows, col) => rows.reduce((a, r) => a + val(r, col), 0);
 
   // 只看有金額的列。國營事業那份在資料中間夾了 9 組重複表頭，沒有金額，會打亂區塊
-  const rows = D.rows.filter(r => cols.some(col => { const c = at(r, col); return c && numOf(c) !== null; }));
+  const rows = D.rows.filter(r => cols.some(col => { const o = at(r, col); return o && numb(o) !== null; }));
   // 標籤 = 左半第一個「有字且不是數字」的格子；找不到標籤的列層級為 null（結構不明）
   const info = rows.map(r => {
-    const lc = (r.l || []).find(c => txtOf(c) && numOf(c) === null);
-    return {row: r, label: lc ? txtOf(lc).replace(/[\s　]/g, '') : '', key: lc ? (lc.col * 100 + (lc.ind || 0)) : null};
+    const lc = all(r, rowKey.get(r)).filter(o => (r.l || []).includes(o.c))
+                 .find(o => text(o) && numb(o) === null);
+    return {row: r, label: lc ? text(lc).replace(/[\s　]/g, '') : '', key: lc ? (lc.col * 100 + (lc.c.ind || 0)) : null};
   });
   const keys = [...new Set(info.filter(i => i.key != null).map(i => i.key))].sort((a,b) => a-b);
   if (!keys.length){ alert('找不到可判斷階層的資料列。'); return; }
