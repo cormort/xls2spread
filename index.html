@@ -973,6 +973,10 @@ function makePage(idx, side, no, last, first){
       if (side === 'r'){
         // 偶數頁（右頁）表名去除開頭的全形與半形空白，確保「畫」字完全靠左
         t = t.replace(/^[\s\u3000]+/, '');
+      } else {
+        // \u5947\u6578\u9801\uff08\u5de6\u9801\uff09\u8868\u540d\u53bb\u6389\u7d50\u5c3e\u7a7a\u767d\uff0c\u6700\u5f8c\u4e00\u500b\u5b57\u624d\u8cbc\u5f97\u5230\u4e2d\u7e2b\u3002
+        // \u7a7a\u767d\u5e38\u88ab\u5305\u5728\u6700\u5f8c\u90a3\u500b <span> \u88e1\uff0c\u6240\u4ee5\u8981\u5141\u8a31\u5f8c\u9762\u9084\u8ddf\u8457\u6536\u5c3e\u6a19\u7c64\u3002
+        t = t.replace(/[\s\u3000]+(?=(?:<\/[^>]+>)*$)/, '');
       }
       const ta = S.titleAlign || 'seam';
       if (ta === 'center') s.style.textAlign = 'center';
