@@ -1126,7 +1126,7 @@ function makePage(idx, side, no, last, first){
   // 跟其他頁那條由 fill 列畫的地線是兩回事，所以要另外套「線粗」才會一致。
   // 合計與備註列：key 用 f<k> 開頭，跟資料列的數字索引分開，才不會撞在一起
   if (last) D.foot.forEach((r, k) => {
-    const tr = el('tr');
+    const tr = el('tr'); tr.dataset.f = k;
     r[side].forEach((c, ci) => {
       const key = `f${k}|${side}|${ci}`;
       const edited = S.edits[key];
@@ -1194,6 +1194,27 @@ function updateUndoBtns(){
   $('bredo').disabled = !redoStack.length;
 }
 
+let footFitting = false;
+// 量合計／備註列真正需要的高度，比目前設定高就撐開
+function fitFoot(){
+  if (!D.foot.length) return false;
+  let changed = false;
+  D.foot.forEach((_, k) => {
+    let px = 0;
+    document.querySelectorAll(`tr[data-f="${k}"] .cw`).forEach(w => {
+      const h = w.style.height; w.style.height = 'auto';
+      px = Math.max(px, w.scrollHeight); w.style.height = h;
+    });
+    const need = Math.max(4, Math.ceil(px / PT / S.k * 10) / 10);
+    if (need > footHt(k) + 0.05){
+      if (!S.footH) S.footH = D.foot.map(r => r.h);
+      S.footH[k] = need;
+      changed = true;
+    }
+  });
+  return changed;
+}
+
 function render(){
   snapshot(); updateUndoBtns(); updateBtnStates();
   const doc = $('doc'); doc.innerHTML = '';
@@ -1240,6 +1261,14 @@ function render(){
     w.classList.add('over');
   });
   if (sel >= 0) $('rh').value = S.h[sel];
+  // 合計／備註列若被原檔的列高切到字（有內容但看不見），自動撐高再畫一次。
+  // 只長不縮，所以最多重畫一輪就收斂。
+  if (!footFitting && fitFoot()){
+    footFitting = true; restoring = true;
+    render();
+    restoring = false; footFitting = false;
+    $('footH').value = footHt(+$('footSel').value || 0);
+  }
   store.set(S);
 }
 
