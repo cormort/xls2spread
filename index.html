@@ -162,6 +162,12 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <button id="brb_n" class="abtn" title="選取列不畫上下框線">無線</button>
   </span>
 
+  <span class="grp" id="footGrp">
+    <span class="grp-title">合計/備註</span>
+    <select id="footSel" title="選擇末頁的合計列或備註列"></select>
+    <label title="該列的高度（pt）。改了會即時重排，末頁容量也會跟著算"><input type="number" id="footH" step="0.5" min="4">pt</label>
+  </span>
+
   <span class="grp" id="colGrp">
     <span class="grp-title">整欄</span>
     <select id="colAlignSelect" title="選擇要設定對齊與框線的欄位"></select>
@@ -655,7 +661,7 @@ async function load(file){
 }
 
 /* ============================ 編輯器 ============================ */
-let D, S, dflt, titlePt, headPt, footPt, sel = -1;
+let D, S, dflt, titlePt, headPt, sel = -1;
 const MM = 96/25.4, PT = 96/72;
 let KEY = '', store = {get: () => ({}), set: () => {}};
 
@@ -669,12 +675,12 @@ function start(model, keepSettings){
   };
   titlePt = D.title.reduce((s,r) => s + r.h, 0);
   headPt  = D.head.reduce((s,r) => s + r.h, 0);
-  footPt  = D.foot.reduce((s,r) => s + r.h, 0);
   const shDflt = +((D.page.h - D.page.mt - D.page.mb) - titlePt * D.k / 72 * 25.4).toFixed(1);
   dflt = {h: D.rows.map(r => r.h), breaks: D.breaks.slice(),
           lh: 1.15, fs: 1, zoom: .5, k: D.k, push: true, sh: shDflt, shend: shDflt, linkEnd: true, gap: 0, edits: {},
           colAligns: {}, titleAlign: 'seam',
-          rowBorders: {}, colBorders: {}, borderPt: D.topBorderPt || .5, headGap: 3};
+          rowBorders: {}, colBorders: {}, borderPt: D.topBorderPt || .5, headGap: 3,
+          footH: D.foot.map(r => r.h)};
   if (keepSettings && S && S.h.length === D.rows.length){
     // 換分欄時保留使用者的列高、分頁、縮放等設定，只清掉可能失效的編輯與欄寬
     S.edits = {};
@@ -709,6 +715,19 @@ function populateSplitSelect(){
     if (c === D.splitCol) o.selected = true;
     sel.appendChild(o);
   }
+}
+function populateFootSelect(){
+  const sel = $('footSel');
+  sel.innerHTML = '';
+  D.foot.forEach((r, k) => {
+    const o = el('option');
+    o.value = k; o.textContent = k === 0 ? '合計' : '備註' + (D.foot.length > 2 ? k : '');
+    sel.appendChild(o);
+  });
+  sel.disabled = !D.foot.length;
+  $('footH').disabled = !D.foot.length;
+  if (D.foot.length) $('footH').value = footHt(+sel.value);
+  else $('footH').value = '';
 }
 function populateColAlignSelect(){
   const selEl = $('colAlignSelect');
@@ -789,6 +808,13 @@ $('colGrp').addEventListener('mouseover', e => {
   b.title = `${b.dataset.baseTitle}\n⚠ 目前調整欄位：欄 ${colName(v)}（請先確認上方下拉選單）`;
 });
 
+$('footSel').onchange = () => { $('footH').value = footHt(+$('footSel').value); };
+$('footH').oninput = e => {
+  const k = +$('footSel').value, v = Math.max(4, +e.target.value || 0);
+  if (!S.footH) S.footH = D.foot.map(r => r.h);
+  S.footH[k] = v;
+  render(); store.set(S);
+};
 $('hgap').oninput = e => { S.headGap = +e.target.value || 0; render(); store.set(S); };
 $('bpt').oninput = e => {
   S.borderPt = e.target.value === '' ? null : +e.target.value;
@@ -899,7 +925,10 @@ const endH = () => S.linkEnd ? S.sh : S.shend;
 const rh = i => S.h[i] + S.gap;
 // 減 2pt：分頁是照列高數字算的，實際渲染還會多出框線厚度，不留餘裕會有頁面剛好擠爆、
 // 填空列被壓成 0，那一頁的地線就會比別頁低個 0.3mm；加 Math.max(10, ...) 避免負數引發死循環
-const capOf = last => Math.max(10, (((last ? endH() : S.sh) * 72 / 25.4) - 2) / S.k - headPt - (S.headGap || 0) - (last ? footPt : 0));
+// 合計／備註列的高度：使用者調過就用 S.footH，沒調過就沿用原檔
+const footHt = k => (S.footH && S.footH[k] != null ? +S.footH[k] : D.foot[k].h);
+const footTotal = () => D.foot.reduce((a, _, k) => a + footHt(k), 0);
+const capOf = last => Math.max(10, (((last ? endH() : S.sh) * 72 / 25.4) - 2) / S.k - headPt - (S.headGap || 0) - (last ? footTotal() : 0));
 const mmOf = h => h * S.k / 72 * 25.4;
 
 // 線粗：沒設過就沿用原檔天線偵測出來的粗細
@@ -996,7 +1025,7 @@ function paginate(guard){
     cur.push(i); acc += h;
   });
   if (cur.length) out.push(cur);
-  // 末頁還要塞合計與備註，容量比別頁小（capOf(true) 已扣掉 footPt）。
+  // 末頁還要塞合計與備註，容量比別頁小（capOf(true) 已扣掉 footTotal()）。
   // 前面那輪是用一般頁的容量在算的，末頁一定要再修一次，否則備註會被擠到紙外、列印時不見。
   // 一樣跟 S.push 無關：這是防溢出，不是列的前後流動。
   for (let g = 0; g < 50 && out.length <= D.rows.length + 5; g++){
@@ -1101,7 +1130,7 @@ function makePage(idx, side, no, last, first){
     r[side].forEach((c, ci) => {
       const key = `f${k}|${side}|${ci}`;
       const edited = S.edits[key];
-      const td = cellEl('td', edited != null ? Object.assign({}, c, {t: esc(edited)}) : c, r.h, null, side, null);
+      const td = cellEl('td', edited != null ? Object.assign({}, c, {t: esc(edited)}) : c, footHt(k), null, side, null);
       const w = td.firstChild;
       w.dataset.key = key;
       if (S.editing){ w.contentEditable = 'plaintext-only'; w.spellcheck = false; }
@@ -1648,11 +1677,12 @@ function resetToDefault(){
   D = model;
   titlePt = D.title.reduce((s,r) => s + r.h, 0);
   headPt  = D.head.reduce((s,r) => s + r.h, 0);
-  footPt  = D.foot.reduce((s,r) => s + r.h, 0);
   const shDflt = +((D.page.h - D.page.mt - D.page.mb) - titlePt * D.k / 72 * 25.4).toFixed(1);
   dflt = {h: D.rows.map(r => r.h), breaks: D.breaks.slice(),
           lh: 1.15, fs: 1, zoom: .5, k: D.k, push: false, sh: shDflt, shend: shDflt, linkEnd: true, gap: 0, edits: {},
-          colWidths: null, viewMode: 'fitH'};
+          colWidths: null, viewMode: 'fitH',
+          colAligns: {}, titleAlign: 'seam', rowBorders: {}, colBorders: {},
+          borderPt: D.topBorderPt || .5, headGap: 3, footH: D.foot.map(r => r.h)};
   S = JSON.parse(JSON.stringify(dflt));
   sel = -1;
   populateSplitSelect();
@@ -1695,6 +1725,7 @@ function bind(){
   $('hgap').value = S.headGap || 0;
   $('hdrLast').value = D.hdrLast;
   $('parea').value = D.area;
+  populateFootSelect();
   populateColAlignSelect();
   setVar();
   applyViewMode(); updateViewBtn();
