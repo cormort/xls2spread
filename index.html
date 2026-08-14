@@ -329,7 +329,10 @@ const FONT_STACK = {
   '細明體': "'MingLiU','Songti TC',serif",
   '華康中明體': "'DFKai-SB','Songti TC',serif",
   '華康中黑體': "'PingFang TC','Microsoft JhengHei',sans-serif",
-  'Times New Roman': "'Times New Roman',Times,serif"
+  // Times New Roman 沒有中文字。中文段落若沒有自己的 rich text 字型，
+  // 就會掉到瀏覽器的預設襯線字（macOS 是宋體），跟隔壁的黑體對比很突兀，
+  // 看起來像變了粗細。在後面補上中文黑體，英數仍走 Times。
+  'Times New Roman': "'Times New Roman',Times,'Microsoft JhengHei','PingFang TC',sans-serif"
 };
 const esc = s => s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 // Excel 寫 1/0，LibreOffice 寫 true/false，兩種都要認
@@ -406,11 +409,19 @@ async function parseXlsx(buf, fileName){
   });
 
   // --- 共用字串（保留 rich text 的顏色，白字是原檔用來縮排的） ---
+  // 一格裡可以混好幾段不同字型／粗細（rich text）。只留顏色的話，
+  // 「資金成本率(％)」這種中文段落會被套上儲存格層級的 Times New Roman，
+  // 中文只能靠瀏覽器 fallback，看起來就跟隔壁格不一樣。
+  const runOf = r => ({
+    t: (r.querySelector('t') || {textContent:''}).textContent,
+    c: rgbOf(r.querySelector('rPr > color')),
+    f: (r.querySelector('rPr > rFont') || {getAttribute:()=>null}).getAttribute('val'),
+    b: flagOf(r.querySelector('rPr > b'))
+  });
   const shared = ssTxt ? [...xml(ssTxt).querySelectorAll('sst > si')].map(si => {
     const rs = [...si.querySelectorAll(':scope > r')];
     if (!rs.length){ const t = si.querySelector('t'); return [{t: t ? t.textContent : '', c: null}]; }
-    return rs.map(r => ({t: (r.querySelector('t') || {textContent:''}).textContent,
-                         c: rgbOf(r.querySelector('rPr > color'))}));
+    return rs.map(runOf);
   }) : [];
 
   // --- 儲存格 ---
@@ -425,7 +436,7 @@ async function parseXlsx(buf, fileName){
       const vEl = c.querySelector('v'), isEl = c.querySelector('is');
       cells[ref] = {s: +(c.getAttribute('s') || 0), t: c.getAttribute('t'),
                     v: vEl ? vEl.textContent : null,
-                    is: isEl ? [...isEl.querySelectorAll('r')].map(r2 => ({t:(r2.querySelector('t')||{textContent:''}).textContent, c: rgbOf(r2.querySelector('rPr > color'))}))
+                    is: isEl ? [...isEl.querySelectorAll('r')].map(r2 => ({t:(r2.querySelector('t')||{textContent:''}).textContent, c: rgbOf(r2.querySelector('rPr > color')), f:(r2.querySelector('rPr > rFont')||{getAttribute:()=>null}).getAttribute('val'), b: flagOf(r2.querySelector('rPr > b'))}))
                               .concat(isEl.querySelector(':scope > t') ? [{t: isEl.querySelector(':scope > t').textContent, c: null}] : []) : null};
     });
   });
@@ -550,20 +561,31 @@ function buildModel(x){
   }
 
   const VAL = {center:'vc', bottom:'vb'};
+
+  // rich text 的每一段可以有自己的字型／粗細（常見用法：中文用微軟正黑體、
+  // 英數與括號用 Times New Roman）。跟儲存格層級不同時才輸出，避免多餘的 style。
+  function runSpan(run, cellFont){
+    const d = [];
+    if (run.c) d.push(`color:${run.c}`);
+    if (run.f && run.f !== cellFont) d.push(`font-family:var(--user-font, ${FONT_STACK[run.f] || 'sans-serif'})`);
+    if (run.b) d.push('font-weight:700');
+    return d.length ? `<span style="${d.join(';')}">${esc(run.t)}</span>` : esc(run.t);
+  }
+
   function cell(r, c, nohz, nobd){
     if (x.skip.has(r + ',' + c)) return null;
     const ref = colName(c) + r, cv = x.cells[ref];
     const xf = xfOf(ref);
+    const cellFont = (x.fonts[xf.fontId] || {}).name;
     let t = '';
     if (cv && cv.v != null){
       if (cv.t === 's'){
-        t = (x.shared[+cv.v] || []).map(run => run.c ? `<span style="color:${run.c}">${esc(run.t)}</span>` : esc(run.t)).join('');
         // 白字是「換行後的縮排」，補上換行，換行點才不會隨字型跑掉
         const runs = x.shared[+cv.v] || [];
         let plain = '', out = '';
         runs.forEach(run => {
           if (/^#f{2}f{2}f{2}$/i.test(run.c || '') && plain && !plain.endsWith('\n')){ out += '\n'; plain += '\n'; }
-          out += run.c ? `<span style="color:${run.c}">${esc(run.t)}</span>` : esc(run.t);
+          out += runSpan(run, cellFont);
           plain += run.t;
         });
         t = out;
@@ -571,7 +593,7 @@ function buildModel(x){
       else if (cv.t === 'b'){ t = cv.v === '1' ? 'TRUE' : 'FALSE'; }
       else { t = esc(fmtNum(+cv.v, x.numFmt[xf.numFmtId])); }
     } else if (cv && cv.is){
-      t = cv.is.map(run => run.c ? `<span style="color:${run.c}">${esc(run.t)}</span>` : esc(run.t)).join('');
+      t = cv.is.map(run => runSpan(run, cellFont)).join('');
     }
     // 分散對齊：Excel 是把字平均攤滿整格。用 CSS justify 在 CJK 上各家瀏覽器不一致，
     // 直接把每個字包起來用 flex 推開，結果才穩定。
