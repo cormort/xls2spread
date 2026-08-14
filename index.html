@@ -195,6 +195,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <button id="bevenall" title="每一頁都做：單行列壓回最小高度固定住，剩下的空白只分給會換行的多行列">平均列高</button>
     <button id="bhtml" title="忽略 Excel 原始列高與分頁，全部依內容重新排版（要回原樣按「重設」）">HTML 重排</button>
     <button id="bauto" title="清掉所有手動分頁點，改成完全照列高自動流動分頁">清手動分頁</button>
+    <button id="bfreeze" title="把目前每一頁的起點通通寫成手動分頁點，並關掉自動分頁。&#10;之後改列高、改字級都不會讓頁面重新流動，版面就定住了。">凍結分頁</button>
     <label title="打勾後分頁會依列高自動計算，列高改變時頁面會重新流動"><input type="checkbox" id="push">自動分頁</label>
   </span>
 
@@ -1685,6 +1686,16 @@ $('bauto').onclick = () => {
     $('push').checked = true;
     render();
   }
+};
+// 把目前的分頁結果固定下來：每一頁的第一列都變成手動分頁點，並關掉自動流動。
+// 之後再調列高也不會整份重排（塞不下時仍會強制切頁，那是防溢出，不能關）。
+$('bfreeze').onclick = () => {
+  const pg = pages();
+  S.breaks = [...new Set(pg.slice(1).map(idx => idx[0]))].filter(i => i > 0).sort((a,b) => a-b);
+  S.push = false;
+  $('push').checked = false;
+  render();
+  alert('已插入 ' + S.breaks.length + ' 個手動分頁點，版面定住了。');
 };
 $('push').onchange = e => { S.push = e.target.checked; render(); };
 // --- 直接改資料 ---
