@@ -1099,7 +1099,14 @@ function makePage(idx, side, no, last, first){
     const tr = el('tr');
     r[side].forEach(c => {
       const td = cellEl('td', c, r.h, null, side, null);
-      if (k === 0) td.style.borderBottom = linePx();
+      if (k === 0){
+        td.style.borderBottom = linePx();
+        // 合計列的列高是原檔給的，常常比字高很多。字若靠上，就會離地線（自己的下框線）很遠，
+        // 所以這一列改成靠下對齊，字貼著地線走。
+        const w = td.firstChild;
+        w.classList.remove('vc');
+        w.classList.add('vb');
+      }
       tr.appendChild(td);
     });
     body.appendChild(tr);
