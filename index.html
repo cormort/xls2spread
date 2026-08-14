@@ -33,6 +33,13 @@ body{margin:0;background:#8a8a8a;font-family:'PingFang TC',sans-serif}
 .grp{display:inline-flex;gap:5px;align-items:center;padding:2px 7px;background:#2d2d2d;border-radius:5px;border:1px solid #444}
 .grp select{background:#444;color:#eee;border:1px solid #666;border-radius:4px;padding:2px 4px;font-size:12px}
 .grp-title{font-size:11px;color:#38bdf8;font-weight:700;margin-right:2px;letter-spacing:.5px}
+/* 可收合的群組：標題當開關，收起來只留標題，工具列才不會爆滿 */
+.grp.fold>.grp-title{cursor:pointer;user-select:none}
+.grp.fold>.grp-title:hover{color:#7dd3fc}
+.grp.fold>.grp-title::before{content:'▾ '}
+.grp.fold.closed>.grp-title::before{content:'▸ '}
+/* 要帶 #bar：上面的 #bar label{display:flex} 有 id，優先權比純 class 高，不然 label 收不起來 */
+#bar .grp.fold.closed>*:not(.grp-title){display:none}
 .abtn{padding:2px 6px!important;min-width:22px;font-size:12px;font-weight:600}
 #hint{opacity:.6;font-size:12px}
 
@@ -164,20 +171,24 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <button id="bfit" title="把目前選取的那一列壓到文字實際需要的最小高度">最小列高</button>
     <button id="bbrk" title="在目前選取列之前插入手動分頁（快捷鍵 B），再按一次取消">此列前分頁 (B)</button>
     <button id="bdel" title="從版面刪掉目前選取的資料列。&#10;復原鍵救不回來，會先問一次。&#10;匯出 xlsx 時原檔那一列會被設成隱藏，不是真的刪除。">刪除本列</button>
+  </span>
+
+  <span class="grp fold closed">
+    <span class="grp-title" title="點一下展開／收合">本列框線</span>
     <button id="brb_t" class="abtn" title="選取列只畫上框線">上線</button>
     <button id="brb_b" class="abtn" title="選取列只畫下框線">下線</button>
     <button id="brb_both" class="abtn" title="選取列上下都畫框線">上下</button>
     <button id="brb_n" class="abtn" title="選取列不畫上下框線">無線</button>
   </span>
 
-  <span class="grp" id="footGrp">
-    <span class="grp-title">合計/備註</span>
+  <span class="grp fold closed" id="footGrp">
+    <span class="grp-title" title="點一下展開／收合">合計/備註</span>
     <select id="footSel" title="選擇末頁的合計列或備註列"></select>
     <label title="該列的高度（pt）。改了會即時重排，末頁容量也會跟著算"><input type="number" id="footH" step="0.5" min="4">pt</label>
   </span>
 
-  <span class="grp" id="colGrp">
-    <span class="grp-title">整欄</span>
+  <span class="grp fold closed" id="colGrp">
+    <span class="grp-title" title="點一下展開／收合">整欄對齊/框線</span>
     <select id="colAlignSelect" title="選擇要設定對齊與框線的欄位"></select>
     <button id="bcol_l" class="abtn" title="該欄靠左對齊">左</button>
     <button id="bcol_c" class="abtn" title="該欄置中對齊">中</button>
@@ -1846,6 +1857,12 @@ $('bfreeze').onclick = () => {
 };
 $('push').onchange = e => { S.push = e.target.checked; render(); };
 // --- 直接改資料 ---
+// 收合群組：標題當開關。狀態只留在畫面上，不進設定檔
+$('bar').addEventListener('click', e => {
+  const t = e.target.closest('.grp.fold > .grp-title');
+  if (t) t.parentNode.classList.toggle('closed');
+});
+
 $('pno').onchange = e => { S.showPno = e.target.checked; render(); store.set(S); };
 $('edit').onchange = e => {
   S.editing = e.target.checked;
