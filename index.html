@@ -673,7 +673,27 @@ function buildModel(x){
   const fontSz = r => ((x.fonts[xfOf(colName(halves.l[0]) + r).fontId] || {}).sz || 11);
   const unseen = r => x.hidden.has(r) || rowh(r) < fontSz(r);
 
-  const pinned = dataRows.filter(r => allc.some(c => bdOf(colName(c) + r).bottom === 'medium'));
+  let pinned = dataRows.filter(r => allc.some(c => bdOf(colName(c) + r).bottom === 'medium'));
+  // 有些檔案的合計列沒有粗下框線（國營事業那份整份都沒有 medium），改用標籤認。
+  // 只看左半第一個有字的欄位並要求整串等於「總計／合計」，
+  // 否則會誤抓到計畫內容描述裡的「合計變電容量…」那種句子。
+  if (!pinned.length){
+    const rawText = ref => {
+      const cv = x.cells[ref];
+      if (!cv) return '';
+      if (cv.t === 's') return (x.shared[+cv.v] || []).map(rn => rn.t).join('');
+      if (cv.is) return cv.is.map(rn => rn.t).join('');
+      return cv.v == null ? '' : String(cv.v);
+    };
+    const label = r => {
+      for (const c of halves.l){ const t = rawText(colName(c) + r).trim(); if (t) return t; }
+      return '';
+    };
+    for (let i = dataRows.length - 1; i >= 0; i--){
+      const t = label(dataRows[i]).replace(/[\s　]/g, '');
+      if (t === '總計' || t === '合計'){ pinned = [dataRows[i]]; break; }
+    }
+  }
   const footFrom = pinned.length ? pinned[pinned.length-1] : r2 + 1;
   const bodyRows = dataRows.filter(r => r < footFrom && !unseen(r));
   const footRows = dataRows.filter(r => r >= footFrom && !unseen(r));
