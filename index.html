@@ -1581,7 +1581,11 @@ $('bdel').onclick = () => {
 
 // ---- 欄寬拖曳 ----
 function colWidths(side){
-  return (S.colWidths && S.colWidths[side]) || D.cols[side];
+  // 欄寬是一欄一個百分比，數量必須跟目前的欄數一致。
+  // 匯入別的檔案／別的分欄位置存下來的設定時長度會不同，
+  // colgroup 的 <col> 數量一少，欄寬就整排錯位（看起來就是跑版）。
+  const w = S.colWidths && S.colWidths[side];
+  return (Array.isArray(w) && w.length === D.cols[side].length) ? w : D.cols[side];
 }
 function findColEdge(e){
   const page = e.target.closest('.page');
@@ -1880,6 +1884,10 @@ $('bload').onclick = () => {
     }
     // 合計／備註列數也可能不同
     if (!Array.isArray(next.footH) || next.footH.length !== D.foot.length) next.footH = D.foot.map(r => r.h);
+    // 欄寬的長度要對得上目前的分欄位置，否則整排欄位錯開
+    const okW = w => Array.isArray(w && w.l) && Array.isArray(w.r)
+                     && w.l.length === D.cols.l.length && w.r.length === D.cols.r.length;
+    if (next.colWidths && !okW(next.colWidths)) next.colWidths = null;
     // 分頁點必須落在有效範圍內
     next.breaks = [...new Set((next.breaks || []).filter(i => i > 0 && i < D.rows.length))].sort((a,b) => a-b);
 
