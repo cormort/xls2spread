@@ -1146,6 +1146,10 @@ function makePage(idx, side, no, last, first){
   const fill = el('tr');
   ((D.rows[idx[0]] || D.rows[0])[side]).forEach(c => {
     const t = el('td', c.c);
+    // 合併儲存格要帶著 colSpan，不然填空列涵蓋的欄數會比表格少，
+    // 地線就會從某一欄開始斷掉（第一筆資料列有 A:E 這種橫向合併時特別明顯）。
+    if (c.cs) t.colSpan = c.cs;
+    if (c.rs) t.rowSpan = 1;   // 填空列只有一列高，不沿用原本的縱向合併
     // 末頁的地線平常是合計列的下框線畫的，所以填空列不重複畫。
     // 但有些檔案整份沒有粗下框線（認不出合計列，D.foot 是空的），這時末頁就沒人畫地線了，
     // 要由填空列補上，否則最後一頁會少一條線。
