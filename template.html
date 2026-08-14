@@ -60,6 +60,8 @@ tr.sel>td{background:#fff6cc}
 <div id="bar">
   <b id="fname"></b>
   <label>縮放<input type="range" id="k" min="0.5" max="1.2" step="0.005"><span id="kv"></span></label>
+  <label title="每一列額外墊高，等於拉開它跟下一列之間的距離；全部頁面一起套用">
+    列間距<input type="range" id="gap" min="0" max="24" step="0.5"><span id="gapv"></span></label>
   <label>行距<input type="range" id="lh" min="0.9" max="2" step="0.05"><span id="lhv"></span></label>
   <label>字級<input type="range" id="fs" min="0.7" max="1.4" step="0.01"><span id="fsv"></span></label>
   <label>天地線高<input type="number" id="sh" step="0.5">mm</label>
@@ -95,7 +97,7 @@ const shDflt = +((D.page.h - D.page.mt - D.page.mb) - titlePt * D.k / 72 * 25.4)
 const dflt = {
   h: D.rows.map(r => r.h),          // 保持 Excel 列高單位(pt)，輸出時再乘縮放 k
   breaks: D.breaks.slice(),
-  lh: 1.15, fs: 1, zoom: .5, k: D.k, push: true,
+  lh: 1.15, fs: 1, zoom: .5, k: D.k, push: true, gap: 0,
   sh: shDflt,        // 天線到地線的高度 mm（每頁固定）
   shend: shDflt      // 末頁（合計＋附註）另設
 };
@@ -124,13 +126,15 @@ const footPt = D.foot.reduce((s,r) => s + r.h, 0);
 // 一頁能放多少（Excel 列高單位）；末頁要扣掉合計＋附註
 // 減 2pt：分頁是照列高數字算的，實際渲染還會多出框線厚度，不留餘裕會有頁面剛好擠爆
 const capOf = last => (((last ? S.shend : S.sh) * 72 / 25.4) - 2) / S.k - headPt - (last ? footPt : 0);
-const mmOf = h => h * S.k / 72 * 25.4;        // Excel 列高(pt) -> 紙上 mm
+const mmOf = h => h * S.k / 72 * 25.4;   // Excel 列高(pt) -> 紙上 mm
+// S.h 只存「文字實際需要的高度」，列間距排版時再加，隨時可拉、也不會被自動配高洗掉
+const rh = i => S.h[i] + S.gap;
 
 function pages(){
   const hard = new Set(S.breaks), cap = capOf(false);
   const out = []; let cur = [], acc = 0;
   D.rows.forEach((r,i) => {
-    const h = S.h[i];
+    const h = rh(i);
     if (cur.length && (hard.has(i) || (S.push && acc + h > cap))){ out.push(cur); cur = []; acc = 0; }
     cur.push(i); acc += h;
   });
@@ -138,7 +142,7 @@ function pages(){
   // 末頁多了合計＋附註，可能還是塞不下，再往後擠
   for (let g = 0; S.push && g < 50; g++){
     const lp = out[out.length-1], cl = capOf(true), moved = [];
-    while (lp.length > 1 && lp.reduce((s,i) => s + S.h[i], 0) > cl) moved.unshift(lp.pop());
+    while (lp.length > 1 && lp.reduce((s,i) => s + rh(i), 0) > cl) moved.unshift(lp.pop());
     if (!moved.length) break;
     out.push(moved);
   }
@@ -181,7 +185,7 @@ function makePage(idx, side, no, last, first){
   idx.forEach(i => {
     const tr = el('tr'); tr.dataset.i = i;
     if (i === sel) tr.className = 'sel';
-    D.rows[i][side].forEach(c => tr.appendChild(cellEl('td', c, S.h[i])));
+    D.rows[i][side].forEach(c => tr.appendChild(cellEl('td', c, rh(i))));
     body.appendChild(tr);
   });
 
@@ -223,7 +227,7 @@ function render(){
     [L,R].forEach(p => p._fill.style.height = Math.max(0, slack) + 'px');
     // 本頁資料列累積 / 可放上限 / 還剩多少
     // capOf(true) 已經把合計＋附註的高度扣掉了，這裡只能算資料列，不然會重複計
-    const used = idx.reduce((s,i) => s + S.h[i], 0), cap = capOf(last);
+    const used = idx.reduce((s,i) => s + rh(i), 0), cap = capOf(last);
     [L,R].forEach(p => {
       const b = el('div','badge');
       b.textContent = `累積 ${mmOf(used).toFixed(1)} / ${mmOf(cap).toFixed(1)}mm`
@@ -256,7 +260,7 @@ function guides(sp, L, idx, last){
   let acc = 0;
   [...L.querySelectorAll('tr[data-i]')].forEach((tr,n) => {
     const i = +tr.dataset.i;
-    acc += S.h[i];
+    acc += rh(i);
     const short = tr.offsetHeight < 16 && n !== idx.length - 1;
     if (short) return;                                  // 太矮的列不標，免得疊在一起
     const lab = el('div','glab');
@@ -279,12 +283,13 @@ function guides(sp, L, idx, last){
 function setVar(){
   const r = document.documentElement.style;
   r.setProperty('--lh', S.lh); r.setProperty('--fs', S.fs); r.setProperty('--zoom', S.zoom); r.setProperty('--k', S.k);
+  $('gapv').textContent = (+S.gap).toFixed(1) + 'pt';
   $('lhv').textContent = (+S.lh).toFixed(2);
   $('fsv').textContent = Math.round(S.fs*100) + '%';
   $('kv').textContent = Math.round(S.k*1000)/10 + '%';
 }
 function applyH(i){
-  document.querySelectorAll(`tr[data-i="${i}"] .cw`).forEach(w => w.style.height = (S.h[i]*S.k).toFixed(2) + 'pt');
+  document.querySelectorAll(`tr[data-i="${i}"] .cw`).forEach(w => w.style.height = (rh(i)*S.k).toFixed(2) + 'pt');
 }
 function select(i){
   sel = i;
@@ -366,11 +371,12 @@ $('bload').onclick = () => {
 };
 $('bprint').onclick = () => window.print();
 
-function bind(){ $('lh').value = S.lh; $('fs').value = S.fs; $('sh').value = S.sh;
+function bind(){ $('lh').value = S.lh; $('fs').value = S.fs; $('sh').value = S.sh; $('gap').value = S.gap;
   $('shend').value = S.shend; $('zm').value = S.zoom; $('k').value = S.k;
   $('push').checked = S.push; setVar(); }
 const redraw = () => { clearTimeout(window._r); window._r = setTimeout(render, 150); };
 $('k').oninput = e => { S.k = +e.target.value; setVar(); redraw(); };
+$('gap').oninput = e => { S.gap = +e.target.value; setVar(); redraw(); };
 $('lh').oninput = e => { S.lh = +e.target.value; setVar(); redraw(); };
 $('fs').oninput = e => { S.fs = +e.target.value; setVar(); redraw(); };
 $('sh').onchange = e => { S.sh = +e.target.value; render(); };
@@ -391,7 +397,7 @@ function evenOut(all){
                     .filter(([idx]) => all || idx.includes(sel));
   if (!targets.length){ alert('先點選要調整的那一頁裡的任一列'); return; }
   targets.forEach(([idx, last]) => {
-    const add = (capOf(last) - idx.reduce((s,i) => s + S.h[i], 0)) / idx.length;
+    const add = (capOf(last) - idx.reduce((s,i) => s + rh(i), 0)) / idx.length;
     if (add > 0) idx.forEach(i => S.h[i] = Math.floor((S.h[i] + add) * 10) / 10);
   });
   render();

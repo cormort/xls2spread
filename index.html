@@ -84,6 +84,8 @@ tr.sel>td{background:#fff6cc}
 <div id="bar" class="hide">
   <b id="fname"></b>
   <label>縮放<input type="range" id="k" min="0.5" max="1.2" step="0.005"><span id="kv"></span></label>
+  <label title="每一列額外墊高，等於拉開它跟下一列之間的距離；全部頁面一起套用">
+    列間距<input type="range" id="gap" min="0" max="24" step="0.5"><span id="gapv"></span></label>
   <label>行距<input type="range" id="lh" min="0.9" max="2" step="0.05"><span id="lhv"></span></label>
   <label>字級<input type="range" id="fs" min="0.7" max="1.4" step="0.01"><span id="fsv"></span></label>
   <label>天地線高<input type="number" id="sh" step="0.5">mm</label>
@@ -100,6 +102,7 @@ tr.sel>td{background:#fff6cc}
   <button id="bbrk">此列前分頁 (B)</button>
   <button id="bauto">清掉全部手動分頁</button>
   <label><input type="checkbox" id="push">依列高自動分頁（前後流動）</label>
+  <button id="bxlsx" title="把調好的列高與分頁寫回 xlsx，其餘內容原封不動，可回 Excel 再微調">匯出 xlsx</button>
   <button id="bsave">匯出設定</button>
   <button id="bload">匯入設定</button>
   <button id="breset">重設</button>
@@ -135,15 +138,57 @@ async function unzip(buf){
   return {u8, dv, files};
 }
 
-async function entry(z, name){
+async function entryBytes(z, name){
   const f = z.files[name];
   if (!f) return null;
   const nl = z.dv.getUint16(f.lho + 26, true), el_ = z.dv.getUint16(f.lho + 28, true);
   const start = f.lho + 30 + nl + el_;
   const bytes = z.u8.subarray(start, start + f.csize);
-  if (f.method === 0) return new TextDecoder().decode(bytes);
+  if (f.method === 0) return bytes;
   const s = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-  return await new Response(s).text();
+  return new Uint8Array(await new Response(s).arrayBuffer());
+}
+async function entry(z, name){
+  const b = await entryBytes(z, name);
+  return b && new TextDecoder().decode(b);
+}
+
+// --- 寫回 zip：只換掉工作表那一份，其餘位元組原封不動搬過去 ---
+const CRC_T = (() => { const t = new Uint32Array(256);
+  for (let i = 0; i < 256; i++){ let c = i; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[i] = c >>> 0; }
+  return t; })();
+const crc32 = u8 => { let c = 0xFFFFFFFF;
+  for (let i = 0; i < u8.length; i++) c = CRC_T[(c ^ u8[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0; };
+
+async function zipWrite(entries){
+  const enc = new TextEncoder(), body = [], cdir = [];
+  let off = 0;
+  for (const e of entries){
+    const nameB = enc.encode(e.name);
+    const comp = new Uint8Array(await new Response(
+      new Blob([e.bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer());
+    const crc = crc32(e.bytes);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(8, 8, true);
+    lh.setUint32(14, crc, true); lh.setUint32(18, comp.length, true); lh.setUint32(22, e.bytes.length, true);
+    lh.setUint16(26, nameB.length, true);
+    body.push(new Uint8Array(lh.buffer), nameB, comp);
+    const cd = new DataView(new ArrayBuffer(46));
+    cd.setUint32(0, 0x02014b50, true); cd.setUint16(4, 20, true); cd.setUint16(6, 20, true);
+    cd.setUint16(10, 8, true); cd.setUint32(16, crc, true);
+    cd.setUint32(20, comp.length, true); cd.setUint32(24, e.bytes.length, true);
+    cd.setUint16(28, nameB.length, true); cd.setUint32(42, off, true);
+    cdir.push(new Uint8Array(cd.buffer), nameB);
+    off += 30 + nameB.length + comp.length;
+  }
+  const cdBytes = cdir.reduce((a,b) => a + b.length, 0);
+  const eo = new DataView(new ArrayBuffer(22));
+  eo.setUint32(0, 0x06054b50, true);
+  eo.setUint16(8, entries.length, true); eo.setUint16(10, entries.length, true);
+  eo.setUint32(12, cdBytes, true); eo.setUint32(16, off, true);
+  return new Blob([...body, ...cdir, new Uint8Array(eo.buffer)],
+                  {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
 }
 
 const xml = t => new DOMParser().parseFromString(t, 'application/xml');
@@ -184,6 +229,8 @@ const rgbOf = el_ => {
   return h === '000000' ? null : '#' + h;
 };
 
+let SRC = null;   // 原始 xlsx 的位元組與工作表路徑，匯出時要用
+
 async function parseXlsx(buf, fileName){
   const z = await unzip(buf);
   const wb = xml(await entry(z, 'xl/workbook.xml'));
@@ -214,6 +261,7 @@ async function parseXlsx(buf, fileName){
   }
   if (!pick) throw new Error('找不到工作表');
 
+  SRC = {z, path: pick.path, name: fileName};
   const sh = xml(await entry(z, pick.path));
   const st = xml(await entry(z, 'xl/styles.xml'));
   const ssTxt = await entry(z, 'xl/sharedStrings.xml');
@@ -423,6 +471,7 @@ function buildModel(x){
     cols: {l: widths('l'), r: widths('r')},
     title: pack(titleRows), head: pack(headRows),
     rows: pack(bodyRows, true), foot: pack(footRows),
+    rowNums: bodyRows,        // 匯出 xlsx 時要把列高寫回原本的列號
     breaks, css
   };
 }
@@ -477,7 +526,7 @@ function start(model){
   footPt  = D.foot.reduce((s,r) => s + r.h, 0);
   const shDflt = +((D.page.h - D.page.mt - D.page.mb) - titlePt * D.k / 72 * 25.4).toFixed(1);
   dflt = {h: D.rows.map(r => r.h), breaks: D.breaks.slice(),
-          lh: 1.15, fs: 1, zoom: .5, k: D.k, push: true, sh: shDflt, shend: shDflt, linkEnd: true};
+          lh: 1.15, fs: 1, zoom: .5, k: D.k, push: true, sh: shDflt, shend: shDflt, linkEnd: true, gap: 0};
   const saved = store.get();
   S = Object.assign({}, dflt, saved);
   // Object.assign 只複製陣列參照，不切一份的話改列高會把 dflt 一起改掉，「重設」就救不回來
@@ -506,10 +555,50 @@ function evenOut(all){
                       : pg.map((idx,n) => [idx, n === pg.length-1]).filter(([idx]) => idx.includes(sel));
   if (!targets.length){ alert('先點選要調整的那一頁裡的任一列'); return; }
   targets.forEach(([idx, last]) => {
-    const add = (capOf(last) - idx.reduce((s,i) => s + S.h[i], 0)) / idx.length;
+    const add = (capOf(last) - idx.reduce((s,i) => s + rh(i), 0)) / idx.length;
     if (add > 0) idx.forEach(i => S.h[i] = Math.floor((S.h[i] + add) * 10) / 10);
   });
   render();
+}
+
+// 把調好的列高與分頁寫回 xlsx：只改工作表 XML 的 ht 和 rowBreaks，
+// 其他（公式、樣式、欄寬、巨集、圖形）全部照抄，回 Excel 還能繼續微調。
+async function exportXlsx(){
+  if (!SRC){ alert('沒有原始檔可以寫回'); return; }
+  const btn = $('bxlsx'), old = btn.textContent;
+  btn.textContent = '產生中…'; btn.disabled = true;
+  try {
+    let txt = await entry(SRC.z, SRC.path);
+    const hByRow = new Map(D.rowNums.map((rn,i) => [rn, rh(i)]));
+    txt = txt.replace(/<row\b[^>]*?\/?>/g, tag => {
+      const m = /\sr="(\d+)"/.exec(tag);
+      if (!m || !hByRow.has(+m[1])) return tag;
+      const selfClose = tag.endsWith('/>');
+      let t = tag.slice(0, selfClose ? -2 : -1)
+                 .replace(/\s(ht|customHeight)="[^"]*"/g, '');
+      return `${t} ht="${hByRow.get(+m[1]).toFixed(2)}" customHeight="true"${selfClose ? '/>' : '>'}`;
+    });
+    // 分頁：brk 的 id 是「這一列之後分頁」，所以寫每頁的最後一列
+    const ids = pages().slice(0, -1).map(idx => D.rowNums[idx[idx.length-1]]);
+    const xmlBrk = `<rowBreaks count="${ids.length}" manualBreakCount="${ids.length}">`
+      + ids.map(id => `<brk id="${id}" man="true" max="16383" min="0"/>`).join('') + '</rowBreaks>';
+    txt = /<rowBreaks[\s\S]*?<\/rowBreaks>|<rowBreaks[^>]*\/>/.test(txt)
+      ? txt.replace(/<rowBreaks[\s\S]*?<\/rowBreaks>|<rowBreaks[^>]*\/>/, xmlBrk)
+      : txt.replace(/<colBreaks|<\/worksheet>/, m => xmlBrk + m);
+
+    const enc = new TextEncoder(), out = [];
+    for (const name of Object.keys(SRC.z.files))
+      out.push({name, bytes: name === SRC.path ? enc.encode(txt) : await entryBytes(SRC.z, name)});
+    const a = el('a');
+    a.href = URL.createObjectURL(await zipWrite(out));
+    a.download = SRC.name.replace(/(\.[^.]+)$/, '') + '-已排版.xlsx';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  } catch (e){
+    alert('匯出失敗：' + e.message); console.error(e);
+  } finally {
+    btn.textContent = old; btn.disabled = false;
+  }
 }
 
 function htmlLayout(){
@@ -521,6 +610,9 @@ function htmlLayout(){
 // 末頁的表格總高含合計＋備註。跟著 sh 走時，備註底部就會落在其他頁地線的同一條線上，
 // 末頁的地線（合計下框線）自動被備註的高度往上頂。
 const endH = () => S.linkEnd ? S.sh : S.shend;
+// S.h 只存「文字實際需要的高度」，列間距是排版時再加上去的，這樣間距可以隨時拉、
+// 也不會被自動配高洗掉。內容靠上對齊，多出來的高度就成為和下一列之間的距離。
+const rh = i => S.h[i] + S.gap;
 // 減 2pt：分頁是照列高數字算的，實際渲染還會多出框線厚度，不留餘裕會有頁面剛好擠爆、
 // 填空列被壓成 0，那一頁的地線就會比別頁低個 0.3mm
 const capOf = last => (((last ? endH() : S.sh) * 72 / 25.4) - 2) / S.k - headPt - (last ? footPt : 0);
@@ -541,14 +633,14 @@ function pages(){
   const hard = new Set(S.breaks), cap = capOf(false);
   const out = []; let cur = [], acc = 0;
   D.rows.forEach((r,i) => {
-    const h = S.h[i];
+    const h = rh(i);
     if (cur.length && (hard.has(i) || (S.push && acc + h > cap))){ out.push(cur); cur = []; acc = 0; }
     cur.push(i); acc += h;
   });
   if (cur.length) out.push(cur);
   for (let g = 0; S.push && g < 50; g++){
     const lp = out[out.length-1], cl = capOf(true), moved = [];
-    while (lp.length > 1 && lp.reduce((s,i) => s + S.h[i], 0) > cl) moved.unshift(lp.pop());
+    while (lp.length > 1 && lp.reduce((s,i) => s + rh(i), 0) > cl) moved.unshift(lp.pop());
     if (!moved.length) break;
     out.push(moved);
   }
@@ -590,7 +682,7 @@ function makePage(idx, side, no, last, first){
   idx.forEach(i => {
     const tr = el('tr'); tr.dataset.i = i;
     if (i === sel) tr.className = 'sel';
-    D.rows[i][side].forEach(c => tr.appendChild(cellEl('td', c, S.h[i])));
+    D.rows[i][side].forEach(c => tr.appendChild(cellEl('td', c, rh(i))));
     body.appendChild(tr);
   });
 
@@ -629,7 +721,7 @@ function render(){
     const slack = Math.min(target - th(L), target - th(R));
     [L,R].forEach(p => p._fill.style.height = Math.max(0, slack) + 'px');
     // capOf(true) 已經扣掉合計＋附註，這裡只算資料列，不然會重複計
-    const used = idx.reduce((s,i) => s + S.h[i], 0), cap = capOf(last);
+    const used = idx.reduce((s,i) => s + rh(i), 0), cap = capOf(last);
     [L,R].forEach(p => {
       const b = el('div','badge');
       b.textContent = `累積 ${mmOf(used).toFixed(1)} / ${mmOf(cap).toFixed(1)}mm`
@@ -661,7 +753,7 @@ function guides(sp, L, idx, last){
   let acc = 0;
   [...L.querySelectorAll('tr[data-i]')].forEach((tr,n) => {
     const i = +tr.dataset.i;
-    acc += S.h[i];
+    acc += rh(i);
     if (tr.offsetHeight < 16 && n !== idx.length - 1) return;
     const lab = el('div','glab');
     lab.style.top = (tr.offsetTop + tr.offsetHeight) + 'px';
@@ -683,12 +775,13 @@ function guides(sp, L, idx, last){
 function setVar(){
   const r = document.documentElement.style;
   r.setProperty('--lh', S.lh); r.setProperty('--fs', S.fs); r.setProperty('--zoom', S.zoom); r.setProperty('--k', S.k);
+  $('gapv').textContent = (+S.gap).toFixed(1) + 'pt';
   $('lhv').textContent = (+S.lh).toFixed(2);
   $('fsv').textContent = Math.round(S.fs*100) + '%';
   $('kv').textContent = Math.round(S.k*1000)/10 + '%';
 }
 function applyH(i){
-  document.querySelectorAll(`tr[data-i="${i}"] .cw`).forEach(w => w.style.height = (S.h[i]*S.k).toFixed(2) + 'pt');
+  document.querySelectorAll(`tr[data-i="${i}"] .cw`).forEach(w => w.style.height = (rh(i)*S.k).toFixed(2) + 'pt');
 }
 function select(i){
   sel = i;
@@ -753,6 +846,7 @@ $('bauto').onclick = () => {
   if (confirm('清掉全部 ' + S.breaks.length + ' 個手動分頁點，改成完全照列高流動？')){ S.breaks = []; render(); }
 };
 $('push').onchange = e => { S.push = e.target.checked; render(); };
+$('bxlsx').onclick = exportXlsx;
 $('bhtml').onclick = htmlLayout;
 $('beven').onclick = () => evenOut(false);
 $('bevenall').onclick = () => evenOut(true);
@@ -770,7 +864,7 @@ $('bload').onclick = () => {
 $('bprint').onclick = () => window.print();
 
 function bind(){
-  $('lh').value = S.lh; $('fs').value = S.fs; $('sh').value = S.sh;
+  $('lh').value = S.lh; $('fs').value = S.fs; $('sh').value = S.sh; $('gap').value = S.gap;
   $('zm').value = S.zoom; $('k').value = S.k;
   $('push').checked = S.push;
   $('linkend').checked = S.linkEnd;
@@ -780,6 +874,7 @@ function bind(){
 }
 const redraw = () => { clearTimeout(window._r); window._r = setTimeout(render, 150); };
 $('k').oninput  = e => { S.k = +e.target.value; setVar(); redraw(); };
+$('gap').oninput = e => { S.gap = +e.target.value; setVar(); redraw(); };
 $('lh').oninput = e => { S.lh = +e.target.value; setVar(); redraw(); };
 $('fs').oninput = e => { S.fs = +e.target.value; setVar(); redraw(); };
 $('sh').onchange = e => { S.sh = +e.target.value; bind(); render(); };
