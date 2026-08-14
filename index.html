@@ -151,7 +151,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <button id="brb_n" class="abtn" title="選取列不畫上下框線">無線</button>
   </span>
 
-  <span class="grp">
+  <span class="grp" id="colGrp">
     <span class="grp-title">整欄對齊</span>
     <select id="colAlignSelect" title="選擇要設定對齊的欄位"></select>
     <button id="bcol_l" class="abtn" title="該欄靠左對齊">左</button>
@@ -185,6 +185,8 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
   <button id="bxlsx" title="把調好的列高與分頁寫回 xlsx，其餘內容原封不動，可回 Excel 再微調">匯出 xlsx</button>
   <button id="bsave" title="把目前的列高、分頁、縮放等設定匯出成 JSON 檔，下次可匯入還原">匯出設定</button>
   <button id="bload" title="匯入之前匯出的 JSON 設定檔，還原列高、分頁等設定">匯入設定</button>
+  <button id="bundo" title="復原上一步（⌘Z / Ctrl+Z）。註：拖曳換列的順序不在復原範圍內" disabled>復原</button>
+  <button id="bredo" title="重做（⇧⌘Z / Ctrl+Shift+Z）" disabled>重做</button>
   <button id="breset" title="回到 Excel 原始的列高與分頁，放棄所有調整">重設</button>
   <button id="bnew" title="關閉目前的檔案，回到拖曳載入畫面換一個檔案">換檔案</button>
   <button id="bprint" title="開啟瀏覽器的列印對話框，可以直接印出或存成 PDF">列印 / 存 PDF</button>
@@ -664,6 +666,7 @@ function start(model, keepSettings){
   $('fname').textContent = D.name + ' / ' + D.sheet;
   $('drop').classList.add('hide');
   $('bar').classList.remove('hide');
+  undoStack = []; redoStack = []; lastSnap = null;   // 換檔／換分欄，復原歷史重來
   populateSplitSelect();
   bind(); render();
   if (firstTime) htmlLayout();
@@ -689,6 +692,10 @@ function populateColAlignSelect(){
     o.textContent = `欄 ${colName(c)}`;
     selEl.appendChild(o);
   }
+  // 預設停在 G 欄（最常調的那欄）；超出範圍就退回第一欄
+  selEl.value = S.colTarget != null ? S.colTarget : 7;
+  if (!selEl.value) selEl.selectedIndex = 0;
+  S.colTarget = +selEl.value;
 }
 $(`split`).onchange = e => {
   if (!RAW) return;
@@ -737,6 +744,16 @@ $(`split`).onchange = e => {
     render(); store.set(S);
   };
 });
+$('colAlignSelect').onchange = e => { S.colTarget = +e.target.value; store.set(S); };
+// 滑過整欄那組按鈕時，把「現在會改到哪一欄」寫進 tooltip，避免改錯欄
+$('colGrp').addEventListener('mouseover', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (!b.dataset.baseTitle) b.dataset.baseTitle = b.title;
+  const v = +$('colAlignSelect').value;
+  b.title = `${b.dataset.baseTitle}\n⚠ 目前調整欄位：欄 ${colName(v)}（請先確認上方下拉選單）`;
+});
+
 $('bpt').oninput = e => {
   S.borderPt = e.target.value === '' ? null : +e.target.value;
   render(); store.set(S);
@@ -857,9 +874,12 @@ function cellEl(tag, c, h, i, side, ci){
 
   // 對齊優先權：儲存格對齊 > 列對齊 > 欄對齊 > Excel 原始對齊
   let align = null;
-  if (i != null && S.cellAligns && S.cellAligns[`${i}|${side}|${ci}`]) align = S.cellAligns[`${i}|${side}|${ci}`];
-  else if (i != null && S.rowAligns && S.rowAligns[i]) align = S.rowAligns[i];
-  else if (c.col != null && S.colAligns && S.colAligns[c.col]) align = S.colAligns[c.col];
+  // i == null 代表表頭／合計備註列：這些是標題性質的列，不吃列／欄對齊設定，維持原檔樣子
+  if (i != null){
+    if (S.cellAligns && S.cellAligns[`${i}|${side}|${ci}`]) align = S.cellAligns[`${i}|${side}|${ci}`];
+    else if (S.rowAligns && S.rowAligns[i]) align = S.rowAligns[i];
+    else if (c.col != null && S.colAligns && S.colAligns[c.col]) align = S.colAligns[c.col];
+  }
 
   let t = c.t;
   if (align){
@@ -1020,7 +1040,48 @@ function makePage(idx, side, no, last, first){
   return p;
 }
 
+/* ---- 復原 / 重做 ----
+   每次 render 前比對 S 有沒有變，變了就把「上一個 S」推進堆疊。這樣所有改設定的地方
+   （對齊、框線、列高、分頁、滑桿…）都自動被記錄，不用在每個事件裡插 snapshot。
+   ponytail: 只記 S。拖曳換列會動到 D.rows 的順序，那個復原不回來——要的話得把列序也搬進 S。 */
+let undoStack = [], redoStack = [], lastSnap = null, restoring = false;
+function snapshot(){
+  const s = JSON.stringify(S);
+  if (lastSnap === null){ lastSnap = s; return; }
+  if (s === lastSnap) return;
+  if (!restoring){
+    undoStack.push(lastSnap);
+    if (undoStack.length > 100) undoStack.shift();
+    redoStack.length = 0;
+  }
+  lastSnap = s;
+}
+function applyState(json){
+  restoring = true;
+  S = JSON.parse(json);
+  lastSnap = json;
+  bind(); render();
+  restoring = false;
+  store.set(S);
+  updateUndoBtns();
+}
+function undo(){
+  if (!undoStack.length) return;
+  redoStack.push(JSON.stringify(S));
+  applyState(undoStack.pop());
+}
+function redo(){
+  if (!redoStack.length) return;
+  undoStack.push(JSON.stringify(S));
+  applyState(redoStack.pop());
+}
+function updateUndoBtns(){
+  $('bundo').disabled = !undoStack.length;
+  $('bredo').disabled = !redoStack.length;
+}
+
 function render(){
+  snapshot(); updateUndoBtns();
   const doc = $('doc'); doc.innerHTML = '';
   const pg = pages();
   pg.forEach((idx,n) => {
@@ -1338,7 +1399,13 @@ doc.addEventListener('dblclick', e => {
   fit(+tr.dataset.i); render();
 });
 document.addEventListener('keydown', e => {
-  if (!D || e.target.tagName === 'INPUT' || sel < 0) return;
+  if (!D) return;
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !S.editing){
+    e.preventDefault();
+    e.shiftKey ? redo() : undo();
+    return;
+  }
+  if (e.target.tagName === 'INPUT' || sel < 0) return;
   if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')){
     e.preventDefault();
     const target = e.key === 'ArrowUp' ? sel - 1 : sel + 1;
@@ -1441,6 +1508,8 @@ $('bload').onclick = () => {
   f.click();
 };
 $('bprint').onclick = () => window.print();
+$('bundo').onclick = undo;
+$('bredo').onclick = redo;
 
 function bind(){
   $('lh').value = S.lh; $('fs').value = S.fs; $('sh').value = S.sh; $('gap').value = S.gap;
