@@ -185,13 +185,13 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
   <span class="grp">
     <span class="grp-title">本頁</span>
     <button id="bfitpage" title="只把這一頁的每一列壓到文字實際需要的高度">最小列高</button>
-    <button id="beven" title="把該頁剩下的空白平均加到每一列，看起來不會上密下空">平均列高</button>
+    <button id="beven" title="單行列先壓回最小高度固定住，該頁剩下的空白只分給會換行的多行列。&#10;整頁都沒有多行列時，才平均分給每一列。空白間隔列不動。">平均列高</button>
   </span>
 
   <span class="grp">
     <span class="grp-title">全部</span>
     <button id="bfitall" title="把所有頁面的每一列都壓到文字實際需要的最小高度">最小列高</button>
-    <button id="bevenall" title="每一頁都把剩餘空白平均加到每一列">平均列高</button>
+    <button id="bevenall" title="每一頁都做：單行列壓回最小高度固定住，剩下的空白只分給會換行的多行列">平均列高</button>
     <button id="bhtml" title="忽略 Excel 原始列高與分頁，全部依內容重新排版（要回原樣按「重設」）">HTML 重排</button>
     <button id="bauto" title="清掉所有手動分頁點，改成完全照列高自動流動分頁">清手動分頁</button>
     <label title="打勾後分頁會依列高自動計算，列高改變時頁面會重新流動"><input type="checkbox" id="push">自動分頁</label>
@@ -837,14 +837,37 @@ $('titleAlign').onchange = e => {
 
 // 把一頁剩下的空白平均分給該頁每一列，讓行距看起來一致，不會上面擠、下面一大塊空白。
 // 無條件捨去到 0.1pt，確保加完的總高不會反而超過容量、害最後一列被擠到下一頁。
+// 哪些列是多行的：以自己的行高為單位，內容超過 1.5 行就算多行。
+// 量的是目前畫面上的 DOM，所以要在改 S.h 之前呼叫。
+function multiLineRows(){
+  const out = new Set();
+  document.querySelectorAll('tr[data-i]').forEach(tr => {
+    const i = +tr.dataset.i;
+    tr.querySelectorAll('.cw').forEach(w => {
+      const lh = parseFloat(getComputedStyle(w).lineHeight);
+      if (!lh) return;
+      const keep = w.style.height; w.style.height = 'auto';
+      const need = w.scrollHeight; w.style.height = keep;
+      if (need > lh * 1.5) out.add(i);
+    });
+  });
+  return out;
+}
+
+// 平均列高：單行列先壓回最小高度「固定」住，剩下的空白只分給會換行的多行列。
+// 空白間隔列不動（那是原檔刻意留的距離），整頁都沒有多行列時退回平均分給每一列。
 function evenOut(all){
   const pg = pages();
   const targets = all ? pg.map((idx,n) => [idx, n === pg.length-1])
                       : pg.map((idx,n) => [idx, n === pg.length-1]).filter(([idx]) => idx.includes(sel));
   if (!targets.length){ alert('先點選要調整的那一頁裡的任一列'); return; }
+  const multi = multiLineRows();
   targets.forEach(([idx, last]) => {
-    const add = (capOf(last) - idx.reduce((s,i) => s + rh(i), 0)) / idx.length;
-    if (add > 0) idx.forEach(i => S.h[i] = Math.floor((S.h[i] + add) * 10) / 10);
+    idx.forEach(i => { if (!multi.has(i) && !D.rows[i].blank) fit(i); });
+    const grow = idx.filter(i => multi.has(i));
+    const pool = grow.length ? grow : idx;
+    const add = (capOf(last) - idx.reduce((s,i) => s + rh(i), 0)) / pool.length;
+    if (add > 0) pool.forEach(i => S.h[i] = Math.floor((S.h[i] + add) * 10) / 10);
   });
   render();
 }
