@@ -990,7 +990,9 @@ function paginate(guard){
   };
   D.rows.forEach((r,i) => {
     const h = rh(i);
-    if (cur.length && (hard.has(i) || (S.push && acc + h > cap))) close(!hard.has(i));
+    // 塞不下就一定要切，跟 S.push 無關：不切的話那一頁會溢出紙張，螢幕上跑到灰底、列印時被裁掉。
+    // S.push 管的是「列可不可以前後流動＋頁尾守則」，不是「要不要防溢出」。
+    if (cur.length && (hard.has(i) || acc + h > cap)) close(!hard.has(i));
     cur.push(i); acc += h;
   });
   if (cur.length) out.push(cur);
@@ -1566,7 +1568,12 @@ $('bfitpage').onclick = () => {
   pg.forEach(i => fit(i)); render();
 };
 $('bauto').onclick = () => {
-  if (confirm('清掉全部 ' + S.breaks.length + ' 個手動分頁點，改成完全照列高流動？')){ S.breaks = []; render(); }
+  if (confirm('清掉全部 ' + S.breaks.length + ' 個手動分頁點，改成完全照列高流動？')){
+    S.breaks = [];
+    S.push = true;              // 按鈕講的就是「照列高自動流動」，順手把開關打開，不然會一個分頁點都不剩
+    $('push').checked = true;
+    render();
+  }
 };
 $('push').onchange = e => { S.push = e.target.checked; render(); };
 // --- 直接改資料 ---
