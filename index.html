@@ -996,7 +996,10 @@ function paginate(guard){
     cur.push(i); acc += h;
   });
   if (cur.length) out.push(cur);
-  for (let g = 0; S.push && g < 50 && out.length <= D.rows.length + 5; g++){
+  // 末頁還要塞合計與備註，容量比別頁小（capOf(true) 已扣掉 footPt）。
+  // 前面那輪是用一般頁的容量在算的，末頁一定要再修一次，否則備註會被擠到紙外、列印時不見。
+  // 一樣跟 S.push 無關：這是防溢出，不是列的前後流動。
+  for (let g = 0; g < 50 && out.length <= D.rows.length + 5; g++){
     const lp = out[out.length-1], cl = capOf(true), moved = [];
     while (lp.length > 1 && lp.reduce((s,i) => s + rh(i), 0) > cl) moved.unshift(lp.pop());
     if (!moved.length) break;
