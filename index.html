@@ -203,7 +203,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <span class="grp-title">檢視</span>
     <label title="畫面檢視縮放，不影響列印，只影響螢幕上看到的大小"><input type="range" id="zm" min="0.3" max="1.5" step="0.05"></label>
     <button id="bview" title="切換顯示模式：滿高（一頁剛好塞滿視窗高度）/ 滿寬（對開塞滿視窗寬度）/ 自訂（手動拉檢視滑桿）">滿高</button>
-    <label title="打開後可直接點資料格改字，改完會自動重新計算最小列高；原檔用來對齊的白色補位字會顯示成灰色，方便刪掉"><input type="checkbox" id="edit">編輯內容</label>
+    <label title="打開後可直接點資料格改字。改完不會動到你調好的列高，只有字多到裝不下時才會往上撐。&#10;原檔用來對齊的白色補位字會顯示成灰色，方便刪掉。"><input type="checkbox" id="edit">編輯內容</label>
     <button id="bundo" title="復原上一步（⌘Z / Ctrl+Z）。註：拖曳換列的順序不在復原範圍內" disabled>復原</button>
     <button id="bredo" title="重做（⇧⌘Z / Ctrl+Shift+Z）" disabled>重做</button>
   </span>
@@ -1729,8 +1729,16 @@ function commitEdit(w){
                  .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
   const 變了 = txt !== (S.edits[key] != null ? S.edits[key] : 原文);
   if (txt === 原文) delete S.edits[key]; else S.edits[key] = txt;
-  // 合計／備註列的高度不歸 S.h 管，沒有 fit 可以重算
-  if (變了){ if (!ref.foot) fit(ref.i); render(); }
+  // 改字不動列高：只有在改長到裝不下時才往上撐，絕不把手動調好的高度壓回最小值。
+  // （合計／備註列的高度不歸 S.h 管，它們用 min-height 自己長）
+  if (變了){
+    if (!ref.foot){
+      const keep = S.h[ref.i];
+      fit(ref.i);
+      S.h[ref.i] = Math.max(keep, S.h[ref.i]);
+    }
+    render();
+  }
   return 變了;
 }
 doc.addEventListener('focusout', e => {
