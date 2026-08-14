@@ -152,6 +152,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <label title="表頭天線到地線之間的總高（mm）。這個值決定每頁能塞多少資料列：&#10;• 資料列不夠填滿時，地線會靠一列空白列撐到這個位置&#10;• 資料列太多時會自動分頁&#10;• 預設值 = 紙張高 − 上下邊界 − 標題區高度&#10;• 所有頁面共用同一個值，地線才會對齊">天地線高<input type="number" id="sh" step="0.5">mm</label>
     <label title="每頁第一列跟表頭下邊線之間的留白（pt），只影響每頁的第一列">首列留白<input type="number" id="hgap" step="0.5" min="0" max="30">pt</label>
     <label title="按「平均列高」時，不換行的單行列統一設成這個高度（pt）；&#10;內容需要更高時以內容為準，不會切字。">單行列高<input type="number" id="oneh" step="0.5" min="4">pt</label>
+    <label title="按「平均列高」時，會換行的多行列在內容高度之上額外留的空間（pt）。&#10;之後剩下的空白才平均分給所有列。">多行加高<input type="number" id="mgap" step="0.5" min="0">pt</label>
     <label title="天線（表頭上緣）與地線（表格下緣）的粗細，「上線／左線」等手動加的框線也用這個值">線粗<input type="number" id="bpt" step="0.25" min="0" max="3">pt</label>
     <label title="勾選：末頁的天地線高跟其他頁一樣，合計與備註會被包在這個高度裡，備註底部自然對齊其他頁的地線。&#10;不勾：末頁可以用獨立的高度值（右邊的數字），不受其他頁牽制。">
       <input type="checkbox" id="linkend">末頁對齊地線<input type="number" id="shend" step="0.5">mm</label>
@@ -760,7 +761,7 @@ function start(model, keepSettings){
           lh: 1.15, fs: 1, zoom: .5, k: D.k, push: true, sh: shDflt, shend: shDflt, linkEnd: true, gap: 0, edits: {},
           colAligns: {}, titleAlign: 'seam',
           rowBorders: {}, colBorders: {}, borderPt: D.topBorderPt || .5, headGap: 3,
-          footH: D.foot.map(r => r.h), oneLineH: 20};
+          footH: D.foot.map(r => r.h), oneLineH: 20, multiGap: 16};
   if (keepSettings && S && S.h.length === D.rows.length){
     // 換分欄時保留使用者的列高、分頁、縮放等設定，只清掉可能失效的編輯與欄寬
     S.edits = {};
@@ -897,6 +898,7 @@ $('footH').oninput = e => {
 };
 $('hgap').oninput = e => { S.headGap = +e.target.value || 0; render(); store.set(S); };
 $('oneh').oninput = e => { S.oneLineH = Math.max(4, +e.target.value || 20); store.set(S); };
+$('mgap').oninput = e => { S.multiGap = Math.max(0, +e.target.value || 0); store.set(S); };
 $('bpt').oninput = e => {
   S.borderPt = e.target.value === '' ? null : +e.target.value;
   render(); store.set(S);
@@ -944,16 +946,20 @@ function evenOut(all){
   if (!targets.length){ alert('先點選要調整的那一頁裡的任一列'); return; }
   const multi = multiLineRows();
   targets.forEach(([idx, last]) => {
-    const one = S.oneLineH != null ? +S.oneLineH : 20;
+    const one   = S.oneLineH  != null ? +S.oneLineH  : 20;
+    const extra = S.multiGap != null ? +S.multiGap : 16;
+    // 先各就各位：每列壓到內容實際需要的高度，
+    // 單行列統一拉到「單行列高」，多行列在內容之上多留「多行加高」。
     idx.forEach(i => {
-      if (multi.has(i) || D.rows[i].blank) return;
-      fit(i);                              // 先壓到最小，避免字被切掉
-      S.h[i] = Math.max(S.h[i], one);      // 再統一拉到單行列高
+      if (D.rows[i].blank) return;         // 原檔刻意留的空白間隔列不動
+      fit(i);
+      S.h[i] = multi.has(i) ? S.h[i] + extra : Math.max(S.h[i], one);
     });
-    const grow = idx.filter(i => multi.has(i));
-    const pool = grow.length ? grow : idx;
-    const add = (capOf(last) - idx.reduce((s,i) => s + rh(i), 0)) / pool.length;
-    if (add > 0) pool.forEach(i => S.h[i] = Math.floor((S.h[i] + add) * 10) / 10);
+    // 剩下的空白再平均分給所有列（空白間隔列除外）
+    const pool = idx.filter(i => !D.rows[i].blank);
+    const use = pool.length ? pool : idx;
+    const add = (capOf(last) - idx.reduce((s,i) => s + rh(i), 0)) / use.length;
+    if (add > 0) use.forEach(i => S.h[i] = Math.floor((S.h[i] + add) * 10) / 10);
   });
   render();
 }
@@ -1860,7 +1866,7 @@ function resetToDefault(){
           lh: 1.15, fs: 1, zoom: .5, k: D.k, push: false, sh: shDflt, shend: shDflt, linkEnd: true, gap: 0, edits: {},
           colWidths: null, viewMode: 'fitH',
           colAligns: {}, titleAlign: 'seam', rowBorders: {}, colBorders: {},
-          borderPt: D.topBorderPt || .5, headGap: 3, footH: D.foot.map(r => r.h), oneLineH: 20};
+          borderPt: D.topBorderPt || .5, headGap: 3, footH: D.foot.map(r => r.h), oneLineH: 20, multiGap: 16};
   S = JSON.parse(JSON.stringify(dflt));
   sel = -1;
   populateSplitSelect();
@@ -1946,6 +1952,7 @@ function bind(){
   $('bpt').value = linePt();
   $('hgap').value = S.headGap || 0;
   $('oneh').value = S.oneLineH != null ? S.oneLineH : 20;
+  $('mgap').value = S.multiGap != null ? S.multiGap : 16;
   $('pdftext').checked = !!S.pdfText;
   $('hdrLast').value = D.hdrLast;
   $('parea').value = D.area;
