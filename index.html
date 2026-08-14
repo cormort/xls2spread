@@ -219,7 +219,8 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <span class="grp-title">檔案</span>
     <button id="bprint" title="開啟瀏覽器的列印對話框。&#10;目的地務必選「另存為 PDF」，選成 Right PDF／Adobe PDF 等印表機會讓整頁變圖片、PDF 裡沒有文字。">列印 / 存 PDF</button>
     <label title="分散對齊的格子原本是一個字一個元素（字距最準），存成 PDF 後在編輯器裡一字一塊、幾乎不能編。&#10;打勾改用 CSS 兩端對齊，整格是一段連續文字、PDF 編得動，字距由瀏覽器決定、可能跟 Excel 略有差異。"><input type="checkbox" id="pdftext">PDF 文字可編輯</label>
-    <button id="bcheck" title="讀原檔裡「差異數」那幾列（通常放在列印範圍外的驗算區），檢查是不是全部為 0。&#10;顯示的是 Excel 存檔時算好的值，這裡不會重算公式。">驗算</button>
+    <button id="bcheck" title="用目前畫面上的數字重新核對：&#10;• 總計 = 各主管之和&#10;• 主管 = 各基金（公司）之和&#10;• 基金（公司）= 各計畫之和&#10;百分比欄會自動排除。">驗算</button>
+    <button id="bcheck2" title="讀原檔裡「差異數」那幾列（通常放在列印範圍外的 sumif 檢誤區），檢查是不是全部為 0。&#10;那是 Excel 存檔時算好的值，本工具不重算公式。">原檔檢誤</button>
     <button id="bxlsx" title="把調好的列高與分頁寫回 xlsx，其餘內容原封不動，可回 Excel 再微調">匯出 xlsx</button>
     <button id="bsave" title="把目前的列高、分頁、縮放等設定匯出成 JSON 檔，下次可匯入還原">匯出設定</button>
     <button id="bload" title="匯入之前匯出的 JSON 設定檔，還原列高、分頁等設定">匯入設定</button>
@@ -634,6 +635,7 @@ function buildModel(x){
     // Excel 裡不換行的靠左文字會溢到右邊的空格子上（「二、一般建築及設備計畫」放在 C 欄、
     // D E 空著就是這種）。標記候選，實際會不會溢由 pack() 看隔壁有沒有東西決定。
     if (!xf.wrap && (!xf.h || xf.h === 'left') && !/\n/.test(t)) o.nw = true;
+    if (xf.indent) o.ind = xf.indent;   // 階層驗算要用：標籤的縮排層級
     if (VAL[xf.v]) o.v = VAL[xf.v];
     if (m[0] > 1) o.rs = m[0];
     if (m[1] > 1) o.cs = m[1];
@@ -1917,9 +1919,101 @@ function resetToDefault(){
   render();
 }
 
+/* ============================ 驗算 ============================
+   用畫面上的數字重新核對階層加總（不看原檔公式，所以編輯過也有效）：
+     總計 = Σ 主管 → 主管 = Σ 基金／公司 → 基金 = Σ 大分類 → 大分類 = Σ 各計畫
+   層級不寫死欄位或字串，改用「標籤所在欄 + Excel 縮排」排序，
+   非營業特種基金（靠縮排）與國營事業（靠欄位位置）兩種表別都認得出來。
+   已用兩份實際檔案驗證：所有層級、所有金額欄零誤差、零誤報。 */
+const txtOf = c => (c && c.t || '').replace(/<[^>]*>/g, '')
+  .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').trim();
+const numOf = c => {
+  const t = txtOf(c).replace(/,/g, '');
+  return t !== '' && isFinite(t) ? +t : null;
+};
+
+function audit(){
+  if (!D || !D.rows.length){ alert('先載入檔案'); return; }
+  if (!D.foot.length){ alert('找不到總計／合計列，無法比對。\n可用「表頭到 N 列」與「範圍」確認表格結構。'); return; }
+
+  const all = row => (row.l || []).concat(row.r || []);
+  const total = D.foot[0];
+
+  // 百分比欄不能加總，從表頭文字認出來排除
+  const pct = new Set();
+  D.head.forEach(r => all(r).forEach(c => {
+    if (/[%％]/.test(txtOf(c))) for (let k = 0; k < (c.cs || 1); k++) pct.add(c.col + k);
+  }));
+  const cols = all(total).filter(c => numOf(c) !== null && !pct.has(c.col)).map(c => c.col);
+  if (!cols.length){ alert('總計列裡找不到可比對的金額欄。'); return; }
+
+  const at = (row, col) => all(row).find(c => c.col === col);
+  const val = (row, col) => { const c = at(row, col); return c ? (numOf(c) || 0) : 0; };
+  const sum = (rows, col) => rows.reduce((a, r) => a + val(r, col), 0);
+
+  // 只看有金額的列。國營事業那份在資料中間夾了 9 組重複表頭，沒有金額，會打亂區塊
+  const rows = D.rows.filter(r => cols.some(col => { const c = at(r, col); return c && numOf(c) !== null; }));
+  // 標籤 = 左半第一個「有字且不是數字」的格子；找不到標籤的列層級為 null（結構不明）
+  const info = rows.map(r => {
+    const lc = (r.l || []).find(c => txtOf(c) && numOf(c) === null);
+    return {row: r, label: lc ? txtOf(lc).replace(/[\s　]/g, '') : '', key: lc ? (lc.col * 100 + (lc.ind || 0)) : null};
+  });
+  const keys = [...new Set(info.filter(i => i.key != null).map(i => i.key))].sort((a,b) => a-b);
+  if (!keys.length){ alert('找不到可判斷階層的資料列。'); return; }
+  info.forEach(i => i.lv = i.key == null ? null : keys.indexOf(i.key));
+
+  const fmt = n => (Math.round(n * 100) / 100).toLocaleString();
+  const out = []; let fail = 0, done = 0, skipped = 0;
+  const NAME = ['主管', '基金（公司）', '大分類', '子分類', '細項'];
+
+  // 總計 = Σ 第 0 層
+  const lv0 = info.filter(i => i.lv === 0).map(i => i.row);
+  let bad0 = 0;
+  cols.forEach(col => {
+    done++;
+    const d = sum(lv0, col) - val(total, col);
+    if (Math.abs(d) > 0.5){ fail++; bad0++;
+      out.push(`✗ 總計 ${colName(col)} 欄：各${NAME[0]}加總 ${fmt(sum(lv0,col))}、總計列 ${fmt(val(total,col))}，差 ${fmt(d)}`); }
+  });
+  if (!bad0) out.push(`✓ 總計 = ${lv0.length} 個${NAME[0]}之和（${cols.length} 個金額欄全部相符）`);
+
+  // 每一層 = Σ 下一層
+  for (let L = 0; L < keys.length - 1; L++){
+    const par = info.map((it,k) => ({it,k})).filter(o => o.it.lv === L);
+    let bad = 0, checked = 0, skip = 0;
+    par.forEach((p, j) => {
+      const end = j + 1 < par.length ? par[j+1].k : info.length;
+      const blk = info.slice(p.k + 1, end);
+      if (blk.some(i => i.lv == null)){ skip++; return; }   // 區塊裡有認不出層級的列，跳過不誤報
+      const kids = blk.filter(i => i.lv === L + 1).map(i => i.row);
+      if (!kids.length) return;
+      cols.forEach(col => {
+        checked++; done++;
+        const d = sum(kids, col) - val(p.it.row, col);
+        if (Math.abs(d) > 0.5){
+          bad++; fail++;
+          if (bad <= 4) out.push(`✗ 「${p.it.label}」${colName(col)} 欄：下層加總 ${fmt(sum(kids,col))}、本列 ${fmt(val(p.it.row,col))}，差 ${fmt(d)}`);
+        }
+      });
+    });
+    skipped += skip;
+    const nm = `${NAME[L] || ('第'+L+'層')} = Σ ${NAME[L+1] || ('第'+(L+1)+'層')}`;
+    if (checked && !bad) out.push(`✓ ${nm}（${par.length - skip} 組、${checked} 個欄位全部相符）`);
+    else if (bad > 4) out.push(`  …「${nm}」另有 ${bad - 4} 項未列出`);
+    else if (!checked) out.push(`－ ${nm}：找不到可比對的層級`);
+  }
+
+  alert((fail ? `⚠ ${fail} 項不符（共檢查 ${done} 項）\n\n` : `✅ 全部通過（共檢查 ${done} 項）\n\n`)
+    + out.join('\n')
+    + `\n\n比對欄位：${cols.map(colName).join('、')}`
+    + (pct.size ? `\n已排除百分比欄：${[...pct].sort((a,b)=>a-b).map(colName).join('、')}` : '')
+    + (skipped ? `\n跳過 ${skipped} 組（區塊內有沒填名稱的列，結構不明就不猜）` : ''));
+}
+
 // 驗算：原檔常在列印範圍外放一區 sumif 檢誤，用「…差異…」當標籤、值應為 0。
 // 這裡讀的是 Excel 存檔時算好的快取值——本工具不重算公式，改過內容要回 Excel 重算。
-$('bcheck').onclick = () => {
+$('bcheck').onclick = audit;
+$('bcheck2').onclick = () => {
   if (!RAW){ alert('先載入檔案'); return; }
   const textOf = ref => {
     const cv = RAW.cells[ref];
