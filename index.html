@@ -102,6 +102,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
 <div id="bar" class="hide">
   <b id="fname"></b>
   <label title="選擇左右頁的分界欄位，左邊的欄歸左頁、右邊的歸右頁">分欄<select id="split"></select></label>
+  <label title="表頭（每頁重複的標題＋欄位名稱）到第幾列為止，下一列開始算資料列。&#10;檔案有設「列印標題」時自動帶入；舊版 .xls 轉檔後通常沒有，要手動填。&#10;填 0 = 沒有表頭。">表頭到<input type="number" id="hdrLast" min="0" step="1">列</label>
   <label title="全域字型設定，切換後自動重新計算列高">字型
     <select id="fontFam">
       <option value="">原檔字型</option>
@@ -453,9 +454,13 @@ function buildModel(x){
   for (let c = c1; c <= c2; c++) (c <= split ? halves.l : halves.r).push(c);
   if (!halves.r.length){ halves.r = halves.l.splice(Math.ceil(halves.l.length/2)); }
 
-  const hdrLast = x.printTitles ? +x.printTitles.replace(/\$/g,'').split('!').pop().split(':')[1] : r1 - 1;
-  const hdrRows = []; for (let r = r1; r <= hdrLast; r++) hdrRows.push(r);
-  const dataRows = []; for (let r = hdrLast + 1; r <= r2; r++) dataRows.push(r);
+  // 表頭範圍優先看檔案的「列印標題」；沒設的話（很多舊 .xls 轉過來就是這樣）預設沒有表頭，
+  // 使用者可以用工具列的「表頭到第 N 列」手動指定，否則整份會被當成資料列、沒有重複表頭也沒有天線。
+  const hdrLast = x._hdrOverride != null ? x._hdrOverride
+                : (x.printTitles ? +x.printTitles.replace(/\$/g,'').split('!').pop().split(':')[1] : r1 - 1);
+  const hdrEnd = Math.min(hdrLast, r2 - 1);   // 至少留一列資料，否則整份會變空
+  const hdrRows = []; for (let r = r1; r <= hdrEnd; r++) hdrRows.push(r);
+  const dataRows = []; for (let r = hdrEnd + 1; r <= r2; r++) dataRows.push(r);
 
   const xfOf = ref => x.xfs[(x.cells[ref] || {s:0}).s] || x.xfs[0] || {};
   const bdOf = ref => x.borders[xfOf(ref).borderId] || {};
@@ -591,7 +596,7 @@ function buildModel(x){
     title: pack(titleRows, true, true), head: pack(headRows),
     rows: pack(bodyRows, true), foot: pack(footRows),
     rowNums: bodyRows,        // 匯出 xlsx 時要把列高寫回原本的列號
-    breaks, css, topBorderPt, splitCol: split, c1, c2
+    breaks, css, topBorderPt, splitCol: split, c1, c2, r1, r2, hdrLast: hdrEnd
   };
 }
 
@@ -703,6 +708,12 @@ $(`split`).onchange = e => {
   RAW._splitOverride = +e.target.value;
   const model = buildModel(RAW);
   start(model, true);
+};
+// 改表頭範圍會把資料列的數量整個換掉，列高與分頁不能沿用，所以重跑一次完整的 start
+$('hdrLast').onchange = e => {
+  if (!RAW) return;
+  RAW._hdrOverride = Math.max(0, Math.floor(+e.target.value || 0));
+  start(buildModel(RAW));
 };
 
 // ---- 對齊事件綁定 ----
@@ -1579,6 +1590,7 @@ function bind(){
   $('titleAlign').value = S.titleAlign || 'seam';
   $('bpt').value = linePt();
   $('hgap').value = S.headGap || 0;
+  $('hdrLast').value = D.hdrLast;
   populateColAlignSelect();
   setVar();
   applyViewMode(); updateViewBtn();
