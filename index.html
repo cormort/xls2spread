@@ -436,7 +436,9 @@ function buildModel(x){
     return {
       h: rowh(r), l, r: rr,
       ind: xfOf(colName(halves.l[0]) + r).indent || 0,   // 縮排層級，用來認出群組標題
-      blank: !l.concat(rr).some(c => plain(c.t))         // 整列空白＝原檔的間隔列
+      blank: !l.concat(rr).some(c => plain(c.t)),        // 整列空白
+      // 列高比字級還小＝原檔刻意壓到放不下任何一行字的間隔列（裡面的東西在 Excel 看不見）
+      spacer: rowh(r) < ((x.fonts[xfOf(colName(halves.l[0]) + r).fontId] || {}).sz || 11)
     };
   });
 
@@ -562,8 +564,9 @@ function evenOut(all){
                       : pg.map((idx,n) => [idx, n === pg.length-1]).filter(([idx]) => idx.includes(sel));
   if (!targets.length){ alert('先點選要調整的那一頁裡的任一列'); return; }
   targets.forEach(([idx, last]) => {
-    const add = (capOf(last) - idx.reduce((s,i) => s + rh(i), 0)) / idx.length;
-    if (add > 0) idx.forEach(i => S.h[i] = Math.floor((S.h[i] + add) * 10) / 10);
+    const grow = idx.filter(i => !D.rows[i].spacer);
+    const add = (capOf(last) - idx.reduce((s,i) => s + rh(i), 0)) / (grow.length || 1);
+    if (add > 0) grow.forEach(i => S.h[i] = Math.floor((S.h[i] + add) * 10) / 10);
   });
   render();
 }
@@ -619,7 +622,7 @@ function htmlLayout(){
 const endH = () => S.linkEnd ? S.sh : S.shend;
 // S.h 只存「文字實際需要的高度」，列間距是排版時再加上去的，這樣間距可以隨時拉、
 // 也不會被自動配高洗掉。內容靠上對齊，多出來的高度就成為和下一列之間的距離。
-const rh = i => S.h[i] + S.gap;
+const rh = i => D.rows[i].spacer ? S.h[i] : S.h[i] + S.gap;
 // 減 2pt：分頁是照列高數字算的，實際渲染還會多出框線厚度，不留餘裕會有頁面剛好擠爆、
 // 填空列被壓成 0，那一頁的地線就會比別頁低個 0.3mm
 const capOf = last => (((last ? endH() : S.sh) * 72 / 25.4) - 2) / S.k - headPt - (last ? footPt : 0);
@@ -832,6 +835,7 @@ function select(i){
 $('rh').onchange = e => { if (sel < 0) return; S.h[sel] = Math.max(4, +e.target.value); applyH(sel); render(); };
 
 function fit(i){
+  if (D.rows[i].spacer) return;   // 撐開它只會露出原檔藏起來的內容
   let px = 0;
   document.querySelectorAll(`tr[data-i="${i}"] .cw`).forEach(w => {
     const h = w.style.height; w.style.height = 'auto';
