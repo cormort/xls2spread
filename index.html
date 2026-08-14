@@ -335,6 +335,28 @@ const FONT_STACK = {
   'Times New Roman': "'Times New Roman',Times,'Microsoft JhengHei','PingFang TC',sans-serif"
 };
 const esc = s => s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+// 分散對齊：Excel 是把字平均攤滿整格。用 CSS justify 在 CJK 上各家瀏覽器不一致，
+// 直接把每個字包起來用 flex 推開，結果才穩定。
+// 注意 html 可能已經含 rich text 的 <span>（中英不同字型），不能對字串逐字切，
+// 那會把標記本身也切開、原樣印在畫面上。走 DOM 逐字取出，順便把該字所屬段落的樣式帶到 <i> 上。
+function distribute(html){
+  const box = document.createElement('span');
+  return String(html).split('\n').map(line => {
+    box.innerHTML = line;
+    const out = [];
+    (function walk(node, style){
+      node.childNodes.forEach(n => {
+        if (n.nodeType === 3) for (const ch of n.textContent) out.push({ch, style});
+        else walk(n, (n.getAttribute && n.getAttribute('style')) || style);
+      });
+    })(box, null);
+    if (!out.length) return '';
+    return '<span class="dl' + (out.length <= 2 ? ' dl2' : '') + '">'
+      + out.map(o => o.style ? `<i style="${o.style}">${esc(o.ch)}</i>` : `<i>${esc(o.ch)}</i>`).join('')
+      + '</span>';
+  }).join('\n');
+}
 // Excel 寫 1/0，LibreOffice 寫 true/false，兩種都要認
 const isOn = v => v != null && v !== '0' && v !== 'false';
 const flagOf = e => !!e && isOn(e.getAttribute('val') ?? '1');
@@ -600,12 +622,7 @@ function buildModel(x){
     } else if (cv && cv.is){
       t = cv.is.map(run => runSpan(run, cellFont)).join('');
     }
-    // 分散對齊：Excel 是把字平均攤滿整格。用 CSS justify 在 CJK 上各家瀏覽器不一致，
-    // 直接把每個字包起來用 flex 推開，結果才穩定。
-    if (xf.h === 'distributed' && t)
-      t = t.split('\n').map(line =>
-        '<span class="dl' + ([...line].length <= 2 ? ' dl2' : '') + '">'
-          + [...line].map(ch => '<i>' + ch + '</i>').join('') + '</span>').join('');
+    if (xf.h === 'distributed' && t) t = distribute(t);
     const m = x.merges[r + ',' + c] || [1,1];
     const o = {t, c: cls(ref, nohz, nobd, mergedBorder(r, c, m[0], m[1])), col: c};
     if (VAL[xf.v]) o.v = VAL[xf.v];
@@ -1046,12 +1063,7 @@ function cellEl(tag, c, h, i, side, ci){
   if (align){
     if (align === 'distributed'){
       w.style.textAlign = 'center';
-      const plain = (t || '').replace(/<[^>]*>/g, '');
-      if (plain){
-        t = plain.split('\n').map(line =>
-          '<span class="dl' + ([...line].length <= 2 ? ' dl2' : '') + '">'
-          + [...line].map(ch => '<i>' + ch + '</i>').join('') + '</span>').join('');
-      }
+      if (t) t = distribute(t);
     } else if (align === 'justify'){
       // ponytail: 原檔多半是 white-space:pre（不換行），不放寬就沒有第二行、justify 等於沒效果
       w.style.whiteSpace = 'pre-wrap';
