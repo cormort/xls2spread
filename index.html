@@ -616,6 +616,7 @@ function buildModel(x){
     title: pack(titleRows, true, true), head: pack(headRows),
     rows: pack(bodyRows, true), foot: pack(footRows),
     rowNums: bodyRows,        // 匯出 xlsx 時要把列高寫回原本的列號
+    footNums: footRows,       // 合計＋備註的原始列號，編輯內容寫回時要用
     breaks, css, topBorderPt, splitCol: split, c1, c2, r1, r2, hdrLast: hdrEnd,
     area: colName(c1) + r1 + ':' + colName(c2) + r2
   };
@@ -848,10 +849,9 @@ async function exportXlsx(){
     // 編輯過的內容寫回儲存格：像數字就存數字，否則存成 inline 字串（公式會被取代掉）
     const xesc = t => t.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
     Object.entries(S.edits).forEach(([key, text]) => {
-      const [i, side, ci] = key.split('|');
-      const cell = D.rows[+i][side][+ci];
-      if (!cell) return;
-      const ref = colName(cell.col) + D.rowNums[+i];
+      const r = cellOfKey(key);
+      if (!r || !r.cell) return;
+      const ref = colName(r.cell.col) + r.rowNum;
       const n = text.replace(/,/g, '').trim();
       const isNum = n !== '' && isFinite(n);
       const inner = isNum ? `<v>${n}</v>` : `<is><t xml:space="preserve">${xesc(text)}</t></is>`;
@@ -1032,8 +1032,8 @@ function makePage(idx, side, no, last, first){
         // 偶數頁（右頁）表名去除開頭的全形與半形空白，確保「畫」字完全靠左
         t = t.replace(/^[\s\u3000]+/, '');
       } else {
-        // \u5947\u6578\u9801\uff08\u5de6\u9801\uff09\u8868\u540d\u53bb\u6389\u7d50\u5c3e\u7a7a\u767d\uff0c\u6700\u5f8c\u4e00\u500b\u5b57\u624d\u8cbc\u5f97\u5230\u4e2d\u7e2b\u3002
-        // \u7a7a\u767d\u5e38\u88ab\u5305\u5728\u6700\u5f8c\u90a3\u500b <span> \u88e1\uff0c\u6240\u4ee5\u8981\u5141\u8a31\u5f8c\u9762\u9084\u8ddf\u8457\u6536\u5c3e\u6a19\u7c64\u3002
+        // 奇數頁（左頁）表名去掉結尾空白，最後一個字才貼得到中縫。
+        // 空白常被包在最後那個 <span> 裡，所以要允許後面還跟著收尾標籤。
         t = t.replace(/[\s\u3000]+(?=(?:<\/[^>]+>)*$)/, '');
       }
       const ta = S.titleAlign || 'seam';
@@ -1095,10 +1095,16 @@ function makePage(idx, side, no, last, first){
 
   // 末頁的地線是合計列（foot 第一列）的下框線，粗細由原檔的 medium 決定，
   // 跟其他頁那條由 fill 列畫的地線是兩回事，所以要另外套「線粗」才會一致。
+  // 合計與備註列：key 用 f<k> 開頭，跟資料列的數字索引分開，才不會撞在一起
   if (last) D.foot.forEach((r, k) => {
     const tr = el('tr');
-    r[side].forEach(c => {
-      const td = cellEl('td', c, r.h, null, side, null);
+    r[side].forEach((c, ci) => {
+      const key = `f${k}|${side}|${ci}`;
+      const edited = S.edits[key];
+      const td = cellEl('td', edited != null ? Object.assign({}, c, {t: esc(edited)}) : c, r.h, null, side, null);
+      const w = td.firstChild;
+      w.dataset.key = key;
+      if (S.editing){ w.contentEditable = 'plaintext-only'; w.spellcheck = false; }
       if (k === 0){
         td.style.borderBottom = linePx();
         // 合計列的列高是原檔給的，常常比字高很多。字若靠上，就會離地線（自己的下框線）很遠，
@@ -1312,6 +1318,7 @@ function moveRow(from, to, pos){
   const newEdits = {};
   Object.entries(S.edits).forEach(([k, v]) => {
     const parts = k.split('|');
+    if (parts[0][0] === 'f'){ newEdits[k] = v; return; }   // 合計／備註列不跟著資料列搬
     let cur = +parts[0];
     if (cur === from){
       cur = target;
@@ -1382,6 +1389,7 @@ function deleteRow(i){
   const newEdits = {};
   Object.entries(S.edits).forEach(([k, v]) => {
     const [ri, side, ci] = k.split('|');
+    if (ri[0] === 'f'){ newEdits[k] = v; return; }   // 合計／備註列不受資料列刪除影響
     if (+ri === i) return;
     newEdits[`${+ri > i ? +ri - 1 : +ri}|${side}|${ci}`] = v;
   });
@@ -1593,15 +1601,29 @@ $('edit').onchange = e => {
   render();
 };
 // 改完（離開該格）才存檔重排，才不會邊打字邊跳掉游標
+// 編輯 key 有兩種：資料列是 "3|l|0"，合計／備註列是 "f0|l|0"。
+// 這支把 key 解回「是哪一格、對應原檔第幾列」，commitEdit 與匯出都用它。
+function cellOfKey(key){
+  const [ri, side, ci] = key.split('|');
+  if (ri[0] === 'f'){
+    const k = +ri.slice(1), row = D.foot[k];
+    return row && {cell: row[side][+ci], rowNum: D.footNums[k], foot: true};
+  }
+  const row = D.rows[+ri];
+  return row && {cell: row[side][+ci], rowNum: D.rowNums[+ri], i: +ri, foot: false};
+}
+
 function commitEdit(w){
   if (!w || !w.dataset.key) return false;
   const key = w.dataset.key, txt = w.innerText.replace(/\u00a0/g, ' ').replace(/\n$/, '');
-  const [i, side, ci] = key.split('|');
-  const 原文 = (D.rows[+i][side][+ci].t || '').replace(/<[^>]*>/g, '')
+  const ref = cellOfKey(key);
+  if (!ref || !ref.cell) return false;
+  const 原文 = (ref.cell.t || '').replace(/<[^>]*>/g, '')
                  .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
   const 變了 = txt !== (S.edits[key] != null ? S.edits[key] : 原文);
   if (txt === 原文) delete S.edits[key]; else S.edits[key] = txt;
-  if (變了){ fit(+i); render(); }
+  // 合計／備註列的高度不歸 S.h 管，沒有 fit 可以重算
+  if (變了){ if (!ref.foot) fit(ref.i); render(); }
   return 變了;
 }
 doc.addEventListener('focusout', e => {
