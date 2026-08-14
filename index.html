@@ -53,6 +53,7 @@ tr.sel>td{background:#fff6cc}
 .badge.bad{color:#fff;background:#d00}
 .mark{position:absolute;top:3px;left:5px;font-size:11px;color:#fff;background:#36c;padding:1px 6px;border-radius:3px;cursor:pointer}
 .mark:hover{background:#d00}
+tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
 @media print{
   body{background:#fff}
   #bar,#drop,.badge,.mark{display:none}
@@ -62,6 +63,7 @@ tr.sel>td{background:#fff6cc}
   .page{box-shadow:none;break-after:page}
   .spread:last-child .page:last-child{break-after:auto}
   tr.sel>td{background:none}
+  tr.orphan>td{box-shadow:none}
   .over{box-shadow:none}
 }
 </style>
@@ -427,11 +429,16 @@ function buildModel(x){
   }
 
   const rowh = r => Math.round((x.rowH[r] || x.defRowH) * 100) / 100;
-  const pack = (rows, nohz) => rows.map(r => ({
-    h: rowh(r),
-    l: halves.l.map(c => cell(r, c, nohz)).filter(Boolean),
-    r: halves.r.map(c => cell(r, c, nohz)).filter(Boolean)
-  }));
+  const plain = t => t.replace(/<[^>]*>/g, '').replace(/[\s\u3000]/g, '');
+  const pack = (rows, nohz) => rows.map(r => {
+    const l = halves.l.map(c => cell(r, c, nohz)).filter(Boolean);
+    const rr = halves.r.map(c => cell(r, c, nohz)).filter(Boolean);
+    return {
+      h: rowh(r), l, r: rr,
+      ind: xfOf(colName(halves.l[0]) + r).indent || 0,   // 縮排層級，用來認出群組標題
+      blank: !l.concat(rr).some(c => plain(c.t))         // 整列空白＝原檔的間隔列
+    };
+  });
 
   const allc = halves.l.concat(halves.r);
   // 有垂直框線才算表格本體；只有底線（天線）的仍屬標題區
@@ -629,12 +636,28 @@ function cellEl(tag, c, h){
   return td;
 }
 
-function pages(){
+// 群組標題（自己沒有計畫內容、下一列比它更縮排）落在頁尾，內容卻在下一頁，看起來會斷掉。
+// 原檔的空白間隔列留在頁尾也只是白佔位置。
+const plainOf = t => (t || '').replace(/<[^>]*>/g, '').replace(/[\s\u3000]/g, '');
+function badTail(i){
+  const r = D.rows[i];
+  if (r.blank) return true;
+  const next = D.rows[i+1];
+  return !!next && next.ind > r.ind && !plainOf(r.r[0] && r.r[0].t);
+}
+
+function paginate(guard){
   const hard = new Set(S.breaks), cap = capOf(false);
   const out = []; let cur = [], acc = 0;
+  const close = auto => {
+    let moved = [];
+    if (auto && guard) while (cur.length > 1 && badTail(cur[cur.length-1])) moved.unshift(cur.pop());
+    out.push(cur);
+    cur = moved; acc = moved.reduce((s,i) => s + rh(i), 0);
+  };
   D.rows.forEach((r,i) => {
     const h = rh(i);
-    if (cur.length && (hard.has(i) || (S.push && acc + h > cap))){ out.push(cur); cur = []; acc = 0; }
+    if (cur.length && (hard.has(i) || (S.push && acc + h > cap))) close(!hard.has(i));
     cur.push(i); acc += h;
   });
   if (cur.length) out.push(cur);
@@ -645,6 +668,14 @@ function pages(){
     out.push(moved);
   }
   return out.length ? out : [[]];
+}
+
+function pages(){
+  const plain = paginate(false);
+  if (!S.push) return plain;
+  // 頁尾守則不強求：只有在不會多印一頁的時候才套用，會多一頁就維持原樣（改用標示提醒）
+  const nice = paginate(true);
+  return nice.length <= plain.length ? nice : plain;
 }
 
 function makePage(idx, side, no, last, first){
@@ -736,6 +767,15 @@ function render(){
       m.onclick = () => { S.breaks = S.breaks.filter(v => v !== idx[0]); render(); };
       L.appendChild(m);
     }
+  });
+  // 還是落單的群組標題：不強制搬動，標出來讓人自己決定
+  pg.slice(0, -1).forEach(idx => {
+    const t = idx[idx.length-1];
+    if (!badTail(t)) return;
+    document.querySelectorAll(`tr[data-i="${t}"]`).forEach(tr => {
+      tr.classList.add('orphan');
+      tr.title = '這一列是群組標題，內容在下一頁；要拉到下一頁就點它、按 B';
+    });
   });
   document.querySelectorAll('.cw').forEach(w => {
     if (w.scrollHeight <= w.clientHeight + 1) return;
