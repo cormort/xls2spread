@@ -83,6 +83,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
 }
 </style>
 <style id="dyn"></style>
+<style id="lineCss"></style>
 </head>
 <body>
 
@@ -130,6 +131,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
   <label title="勾選：末頁的天地線高跟其他頁一樣，合計與備註會被包在這個高度裡，備註底部自然對齊其他頁的地線。&#10;不勾：末頁可以用獨立的高度值（右邊的數字），不受其他頁牽制。">
     <input type="checkbox" id="linkend">末頁備註底對齊地線
     <input type="number" id="shend" step="0.5">mm</label>
+  <label title="天線（表頭上緣）與地線（表格下緣）的粗細，上面「上線／左線」等手動加的框線也用這個值">線粗<input type="number" id="bpt" step="0.25" min="0" max="3">pt</label>
   <label title="畫面檢視縮放，不影響列印，只影響螢幕上看到的大小">檢視<input type="range" id="zm" min="0.3" max="1.5" step="0.05"></label>
   <button id="bview" title="切換顯示模式：滿高（一頁剛好塞滿視窗高度）/ 滿寬（對開塞滿視窗寬度）/ 自訂（手動拉檢視滑桿）">滿高</button>
 
@@ -143,6 +145,10 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <button id="balign_r" class="abtn" title="選取列靠右對齊">右</button>
     <button id="balign_d" class="abtn" title="選取列分散對齊">散</button>
     <button id="balign_j" class="abtn" title="選取列左右對齊（兩端對齊，換行後末行靠左）">齊</button>
+    <button id="brb_t" class="abtn" title="選取列只畫上框線">上線</button>
+    <button id="brb_b" class="abtn" title="選取列只畫下框線">下線</button>
+    <button id="brb_both" class="abtn" title="選取列上下都畫框線">上下</button>
+    <button id="brb_n" class="abtn" title="選取列不畫上下框線">無線</button>
   </span>
 
   <span class="grp">
@@ -153,6 +159,10 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <button id="bcol_r" class="abtn" title="該欄靠右對齊">右</button>
     <button id="bcol_d" class="abtn" title="該欄分散對齊">散</button>
     <button id="bcol_j" class="abtn" title="該欄左右對齊（兩端對齊，換行後末行靠左）">齊</button>
+    <button id="bcb_l" class="abtn" title="該欄只畫左框線">左線</button>
+    <button id="bcb_r" class="abtn" title="該欄只畫右框線">右線</button>
+    <button id="bcb_both" class="abtn" title="該欄左右都畫框線">左右</button>
+    <button id="bcb_n" class="abtn" title="該欄不畫左右框線">無線</button>
   </span>
 
   <span class="grp">
@@ -633,7 +643,8 @@ function start(model, keepSettings){
   const shDflt = +((D.page.h - D.page.mt - D.page.mb) - titlePt * D.k / 72 * 25.4).toFixed(1);
   dflt = {h: D.rows.map(r => r.h), breaks: D.breaks.slice(),
           lh: 1.15, fs: 1, zoom: .5, k: D.k, push: true, sh: shDflt, shend: shDflt, linkEnd: true, gap: 0, edits: {},
-          rowAligns: {}, colAligns: {}, titleAlign: 'seam'};
+          rowAligns: {}, colAligns: {}, titleAlign: 'seam',
+          rowBorders: {}, colBorders: {}, borderPt: D.topBorderPt || .5};
   if (keepSettings && S && S.h.length === D.rows.length){
     // 換分欄時保留使用者的列高、分頁、縮放等設定，只清掉可能失效的編輯與欄寬
     S.edits = {};
@@ -707,6 +718,29 @@ $(`split`).onchange = e => {
     store.set(S);
   };
 });
+
+// ---- 框線事件綁定 ----
+[['t','top'],['b','bottom'],['both','both'],['n','none']].forEach(([k, v]) => {
+  $(`brb_${k}`).onclick = () => {
+    if (sel < 0){ alert('請先點選要設定框線的資料列'); return; }
+    if (!S.rowBorders) S.rowBorders = {};
+    S.rowBorders[sel] = v;
+    render(); store.set(S);
+  };
+});
+[['l','left'],['r','right'],['both','both'],['n','none']].forEach(([k, v]) => {
+  $(`bcb_${k}`).onclick = () => {
+    const colVal = +$('colAlignSelect').value;
+    if (!colVal) return;
+    if (!S.colBorders) S.colBorders = {};
+    S.colBorders[colVal] = v;
+    render(); store.set(S);
+  };
+});
+$('bpt').oninput = e => {
+  S.borderPt = e.target.value === '' ? null : +e.target.value;
+  render(); store.set(S);
+};
 
 $('fontFam').onchange = e => {
   S.font = e.target.value;
@@ -810,6 +844,10 @@ const rh = i => S.h[i] + S.gap;
 const capOf = last => Math.max(10, (((last ? endH() : S.sh) * 72 / 25.4) - 2) / S.k - headPt - (last ? footPt : 0));
 const mmOf = h => h * S.k / 72 * 25.4;
 
+// 線粗：沒設過就沿用原檔天線偵測出來的粗細
+const linePt = () => S.borderPt != null ? +S.borderPt : (D.topBorderPt || .5);
+const linePx = () => linePt() + 'pt solid #000';
+
 function cellEl(tag, c, h, i, side, ci){
   const td = el(tag, c.c);            // 框線在 td（border-collapse 合併），字的樣式在內層 div
   if (c.cs) td.colSpan = c.cs;
@@ -840,6 +878,19 @@ function cellEl(tag, c, h, i, side, ci){
       w.style.textAlign = align;
     }
   }
+  // 框線覆寫：列管上下、欄管左右，粗細跟天地線同一個值。
+  // 寫在 td 的 inline style 上，才蓋得過 buildModel 產生的 class，也才會被 border-collapse 合併成連續線。
+  const rb = i != null && S.rowBorders && S.rowBorders[i];
+  if (rb){
+    td.style.borderTop    = rb === 'top'  || rb === 'both' ? linePx() : 'none';
+    td.style.borderBottom = rb === 'bottom' || rb === 'both' ? linePx() : 'none';
+  }
+  const cb = c.col != null && S.colBorders && S.colBorders[c.col];
+  if (cb){
+    td.style.borderLeft  = cb === 'left'  || cb === 'both' ? linePx() : 'none';
+    td.style.borderRight = cb === 'right' || cb === 'both' ? linePx() : 'none';
+  }
+
   w.innerHTML = t;
   td.appendChild(w);
   return td;
@@ -950,7 +1001,7 @@ function makePage(idx, side, no, last, first){
   const fill = el('tr');
   ((D.rows[idx[0]] || D.rows[0])[side]).forEach(c => {
     const t = el('td', c.c);
-    if (!last) t.style.borderBottom = (D.topBorderPt || .5) + 'pt solid #000';
+    if (!last) t.style.borderBottom = linePx();
     fill.appendChild(t);
   });
   fill.style.height = '0';
@@ -1051,6 +1102,9 @@ function setVar(){
   $('lhv').textContent = (+S.lh).toFixed(2);
   $('fsv').textContent = Math.round(S.fs*100) + '%';
   $('kv').textContent = Math.round(S.k*1000)/10 + '%';
+  // 天線是第一列表頭的上框線，粗細寫在 buildModel 產生的 class 裡，只能用 !important 蓋掉
+  $('lineCss').textContent = S.borderPt != null
+    ? `thead tr:first-child th{border-top:${+S.borderPt}pt solid #000!important}` : '';
 }
 function applyH(i){
   document.querySelectorAll(`tr[data-i="${i}"] .cw`).forEach(w => w.style.height = (rh(i)*S.k).toFixed(2) + 'pt');
@@ -1111,17 +1165,19 @@ function moveRow(from, to, pos){
   });
   S.edits = newEdits;
 
-  if (S.rowAligns){
-    const newRowAligns = {};
-    Object.entries(S.rowAligns).forEach(([k, v]) => {
+  // 列被搬動後，掛在列索引上的設定（對齊、框線）要跟著搬
+  ['rowAligns', 'rowBorders'].forEach(key => {
+    if (!S[key]) return;
+    const out = {};
+    Object.entries(S[key]).forEach(([k, v]) => {
       let cur = +k;
       if (cur === from) cur = target;
       else if (from < target && cur > from && cur <= target) cur--;
       else if (from > target && cur >= target && cur < from) cur++;
-      newRowAligns[cur] = v;
+      out[cur] = v;
     });
-    S.rowAligns = newRowAligns;
-  }
+    S[key] = out;
+  });
 
   // 跨頁移動時同步更新手動分頁點，使分頁邊界維持並讓列順利跨頁
   if (S.breaks && S.breaks.length){
@@ -1398,6 +1454,7 @@ function bind(){
   if (!S.viewMode) S.viewMode = 'fitH';
   $('fontFam').value = S.font || '';
   $('titleAlign').value = S.titleAlign || 'seam';
+  $('bpt').value = linePt();
   populateColAlignSelect();
   setVar();
   applyViewMode(); updateViewBtn();
