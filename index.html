@@ -54,6 +54,10 @@ table{width:100%;border-collapse:collapse;table-layout:fixed}
 td,th{padding:0;vertical-align:top;font-weight:400}
 .cw{overflow:hidden;line-height:var(--lh);padding:0 3px}
 .vc{display:flex;flex-direction:column;justify-content:center}
+/* 垂直對齊是用 flex 做的，直接子元素會變成 flex item 而縱向排開。
+   儲存格內容含 rich text 的 <span> 時（中英不同字型）就會一個字一行，
+   所以內容要先包一層 block 外殼，讓 flex 只看到一個項目。 */
+.vw{display:block;width:100%}
 .dl{display:flex;justify-content:space-between}
 /* 只有一兩個字的分散對齊（「全部」「計畫」），貼齊兩端會離太開，改成落在格子的 1/3、2/3 */
 .dl2{justify-content:space-evenly}
@@ -1104,7 +1108,7 @@ function cellEl(tag, c, h, i, side, ci){
     }
   }
 
-  w.innerHTML = t;
+  w.innerHTML = c.v ? `<span class="vw">${t}</span>` : t;
   td.appendChild(w);
   return td;
 }
