@@ -157,11 +157,11 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <label title="Excel 的列印縮放比例，影響文字和框線的實際大小">縮放<input type="range" id="k" min="0.5" max="1.2" step="0.005"><span id="kv"></span></label>
     <label title="每一列額外墊高，等於拉開它跟下一列之間的距離；全部頁面一起套用">列間距<input type="range" id="gap" min="0" max="24" step="0.5"><span id="gapv"></span></label>
     <label title="表頭天線到地線之間的總高（mm）。這個值決定每頁能塞多少資料列：&#10;• 資料列不夠填滿時，地線會靠一列空白列撐到這個位置&#10;• 資料列太多時會自動分頁&#10;• 預設值 = 紙張高 − 上下邊界 − 標題區高度&#10;• 所有頁面共用同一個值，地線才會對齊">天地線高<input type="number" id="sh" step="0.5">mm</label>
-    <label title="每頁第一列跟表頭下邊線之間的留白（pt），只影響每頁的第一列">首列留白<input type="number" id="hgap" step="0.5" min="0" max="30">pt</label>
-    <label title="按「平均列高」時，不換行的單行列統一設成這個高度（pt）；&#10;內容需要更高時以內容為準，不會切字。">單行列高<input type="number" id="oneh" step="0.5" min="4">pt</label>
-    <label title="按「平均列高」時，會換行的多行列在內容高度之上額外留的空間（pt）。&#10;之後剩下的空白才平均分給所有列。">多行加高<input type="number" id="mgap" step="0.5" min="0">pt</label>
-    <label title="天線（表頭上緣）與地線（表格下緣）的粗細，「上線／左線」等手動加的框線也用這個值">線粗<input type="number" id="bpt" step="0.25" min="0" max="3">pt</label>
-    <label title="勾選：末頁的天地線高跟其他頁一樣，合計與備註會被包在這個高度裡，備註底部自然對齊其他頁的地線。&#10;不勾：末頁可以用獨立的高度值（右邊的數字），不受其他頁牽制。">
+    <label title="每頁第一列跟表頭下邊線之間的留白（pt），只影響每頁的第一列。&#10;&#10;✓ 改了立刻重排，不必按平均列高。&#10;但它會從每頁容量扣掉，可能把最後一列擠到下一頁——&#10;調完建議再按一次「全部→平均列高」收尾。">首列留白<input type="number" id="hgap" step="0.5" min="0" max="30">pt</label>
+    <label title="不換行的單行列統一設成這個高度（pt）。&#10;內容需要更高時以內容為準，不會切字。&#10;&#10;⚠ 只在按「平均列高」時才套用——改這裡不會立刻重排，要再按一次平均列高。&#10;按完之後手動拉過的列會脫離這個值，直到下次再按平均列高。">單行列高<input type="number" id="oneh" step="0.5" min="4">pt</label>
+    <label title="會換行的多行列，在內容高度之上額外留的空間（pt）。&#10;之後剩下的空白才平均分給所有列。&#10;&#10;⚠ 只在按「平均列高」時才套用——改這裡不會立刻重排，要再按一次平均列高。">多行加高<input type="number" id="mgap" step="0.5" min="0">pt</label>
+    <label title="天線（表頭上緣）與地線（表格下緣）的粗細，「上線／左線」等手動加的框線也用這個值。&#10;&#10;✓ 改了立刻重排，不必按平均列高。">線粗<input type="number" id="bpt" step="0.25" min="0" max="3">pt</label>
+    <label title="勾選：末頁的天地線高跟其他頁一樣，合計與備註會被包在這個高度裡，備註底部自然對齊其他頁的地線。&#10;不勾：末頁可以用獨立的高度值（右邊的數字），不受其他頁牽制。&#10;&#10;✓ 改了立刻重排，不必按平均列高。它改的是末頁容量。">
       <input type="checkbox" id="linkend">末頁對齊地線<input type="number" id="shend" step="0.5">mm</label>
   </span>
 
@@ -204,13 +204,13 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
   <span class="grp">
     <span class="grp-title">本頁</span>
     <button id="bfitpage" title="只把這一頁的每一列壓到文字實際需要的高度">最小列高</button>
-    <button id="beven" title="單行列先壓回最小高度固定住，該頁剩下的空白只分給會換行的多行列。&#10;整頁都沒有多行列時，才平均分給每一列。空白間隔列不動。">平均列高</button>
+    <button id="beven" title="套用「單行列高」與「多行加高」兩個設定，再把剩下的空白平均分給所有列。&#10;單行列＝單行列高；多行列＝內容高＋多行加高；空白間隔列不動。&#10;末頁不攤平（資料少，攤了會把每列撐得很高）。&#10;&#10;改過那兩個數字後要按這裡才會生效。">平均列高</button>
   </span>
 
   <span class="grp">
     <span class="grp-title">全部</span>
     <button id="bfitall" title="把所有頁面的每一列都壓到文字實際需要的最小高度">最小列高</button>
-    <button id="bevenall" title="每一頁都做：單行列壓回最小高度固定住，剩下的空白只分給會換行的多行列">平均列高</button>
+    <button id="bevenall" title="每一頁都套用「單行列高」與「多行加高」，再把剩餘空白平均分給所有列。&#10;末頁只做前半段，不把空白攤到列高上。&#10;&#10;改過那兩個數字後要按這裡才會生效。">平均列高</button>
     <button id="bhtml" title="忽略 Excel 原始列高與分頁，全部依內容重新排版（要回原樣按「重設」）">HTML 重排</button>
     <button id="bauto" title="清掉所有手動分頁點，改成完全照列高自動流動分頁">清手動分頁</button>
     <button id="bfreeze" title="把目前每一頁的起點通通寫成手動分頁點，並關掉自動分頁。&#10;之後改列高、改字級都不會讓頁面重新流動，版面就定住了。">凍結分頁</button>
