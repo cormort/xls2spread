@@ -744,7 +744,7 @@ $(`split`).onchange = e => {
     render(); store.set(S);
   };
 });
-$('colAlignSelect').onchange = e => { S.colTarget = +e.target.value; store.set(S); };
+$('colAlignSelect').onchange = e => { S.colTarget = +e.target.value; updateBtnStates(); store.set(S); };
 // 滑過整欄那組按鈕時，把「現在會改到哪一欄」寫進 tooltip，避免改錯欄
 $('colGrp').addEventListener('mouseover', e => {
   const b = e.target.closest('button');
@@ -1027,9 +1027,15 @@ function makePage(idx, side, no, last, first){
   fill.style.height = '0';
   body.appendChild(fill);
 
-  if (last) D.foot.forEach(r => {
+  // 末頁的地線是合計列（foot 第一列）的下框線，粗細由原檔的 medium 決定，
+  // 跟其他頁那條由 fill 列畫的地線是兩回事，所以要另外套「線粗」才會一致。
+  if (last) D.foot.forEach((r, k) => {
     const tr = el('tr');
-    r[side].forEach(c => tr.appendChild(cellEl('td', c, r.h, null, side, null)));
+    r[side].forEach(c => {
+      const td = cellEl('td', c, r.h, null, side, null);
+      if (k === 0) td.style.borderBottom = linePx();
+      tr.appendChild(td);
+    });
     body.appendChild(tr);
   });
 
@@ -1081,7 +1087,7 @@ function updateUndoBtns(){
 }
 
 function render(){
-  snapshot(); updateUndoBtns();
+  snapshot(); updateUndoBtns(); updateBtnStates();
   const doc = $('doc'); doc.innerHTML = '';
   const pg = pages();
   pg.forEach((idx,n) => {
@@ -1175,6 +1181,26 @@ function select(i){
   document.querySelectorAll('tr.sel').forEach(t => t.classList.remove('sel'));
   document.querySelectorAll(`tr[data-i="${i}"]`).forEach(t => t.classList.add('sel'));
   $('rh').disabled = i < 0; $('rh').value = i < 0 ? '' : S.h[i];
+  updateBtnStates();
+}
+
+// 對齊／框線按鈕的亮起狀態：列那組看選取列，欄那組看下拉選到的欄。
+// 沒設過就全部不亮（＝沿用原檔），跟「無線」是不同狀態。
+const BTN_STATE = [
+  ['balign_', {left:'l', center:'c', right:'r', distributed:'d', justify:'j'}, () => sel >= 0 && (S.rowAligns || {})[sel]],
+  ['brb_',    {top:'t', bottom:'b', both:'both', none:'n'},                     () => sel >= 0 && (S.rowBorders || {})[sel]],
+  ['bcol_',   {left:'l', center:'c', right:'r', distributed:'d', justify:'j'}, () => (S.colAligns || {})[+$('colAlignSelect').value]],
+  ['bcb_',    {left:'l', right:'r', both:'both', none:'n'},                     () => (S.colBorders || {})[+$('colAlignSelect').value]]
+];
+function updateBtnStates(){
+  if (!S) return;
+  BTN_STATE.forEach(([prefix, map, get]) => {
+    const on = get();
+    Object.entries(map).forEach(([v, k]) => {
+      const b = $(prefix + k);
+      if (b) b.classList.toggle('active', on === v);
+    });
+  });
 }
 $('rh').onchange = e => { if (sel < 0) return; S.h[sel] = Math.max(4, +e.target.value); applyH(sel); render(); };
 
