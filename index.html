@@ -219,6 +219,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <span class="grp-title">檔案</span>
     <button id="bprint" title="開啟瀏覽器的列印對話框。&#10;目的地務必選「另存為 PDF」，選成 Right PDF／Adobe PDF 等印表機會讓整頁變圖片、PDF 裡沒有文字。">列印 / 存 PDF</button>
     <label title="分散對齊的格子原本是一個字一個元素（字距最準），存成 PDF 後在編輯器裡一字一塊、幾乎不能編。&#10;打勾改用 CSS 兩端對齊，整格是一段連續文字、PDF 編得動，字距由瀏覽器決定、可能跟 Excel 略有差異。"><input type="checkbox" id="pdftext">PDF 文字可編輯</label>
+    <button id="bcheck" title="讀原檔裡「差異數」那幾列（通常放在列印範圍外的驗算區），檢查是不是全部為 0。&#10;顯示的是 Excel 存檔時算好的值，這裡不會重算公式。">驗算</button>
     <button id="bxlsx" title="把調好的列高與分頁寫回 xlsx，其餘內容原封不動，可回 Excel 再微調">匯出 xlsx</button>
     <button id="bsave" title="把目前的列高、分頁、縮放等設定匯出成 JSON 檔，下次可匯入還原">匯出設定</button>
     <button id="bload" title="匯入之前匯出的 JSON 設定檔，還原列高、分頁等設定">匯入設定</button>
@@ -1890,6 +1891,38 @@ function resetToDefault(){
   bind();
   render();
 }
+
+// 驗算：原檔常在列印範圍外放一區 sumif 檢誤，用「…差異…」當標籤、值應為 0。
+// 這裡讀的是 Excel 存檔時算好的快取值——本工具不重算公式，改過內容要回 Excel 重算。
+$('bcheck').onclick = () => {
+  if (!RAW){ alert('先載入檔案'); return; }
+  const textOf = ref => {
+    const cv = RAW.cells[ref];
+    if (!cv) return '';
+    if (cv.t === 's') return (RAW.shared[+cv.v] || []).map(x => x.t).join('');
+    if (cv.is) return cv.is.map(x => x.t).join('');
+    return cv.v == null ? '' : String(cv.v);
+  };
+  const byRow = {};
+  for (const ref in RAW.cells) (byRow[rowNum(ref)] = byRow[rowNum(ref)] || []).push(ref);
+
+  const lines = [];
+  let checked = 0, bad = 0;
+  Object.keys(byRow).map(Number).sort((a,b) => a-b).forEach(r => {
+    const refs = byRow[r].slice().sort((a,b) => colNum(a) - colNum(b));
+    const label = (refs.map(textOf).find(t => t.trim() && isNaN(t)) || '').trim();
+    if (!/差異/.test(label)) return;
+    checked++;
+    const off = refs.filter(ref => { const v = textOf(ref); return v !== '' && !isNaN(v) && +v !== 0; })
+                    .map(ref => `${ref}=${(+textOf(ref)).toLocaleString()}`);
+    if (off.length){ bad++; lines.push(`✗ 第 ${r} 列「${label}」 → ${off.join('、')}`); }
+    else lines.push(`✓ 第 ${r} 列「${label}」 全部為 0`);
+  });
+
+  if (!checked){ alert('原檔裡找不到標籤含「差異」的驗算列。\n（這類檢誤區通常放在列印範圍下方）'); return; }
+  alert((bad ? `⚠ ${bad} / ${checked} 項不符\n\n` : `✅ ${checked} 項全部通過\n\n`) + lines.join('\n')
+        + '\n\n註：顯示的是 Excel 存檔時算好的值，本工具不重算公式。');
+};
 
 $('bxlsx').onclick = exportXlsx;
 $('bhtml').onclick = htmlLayout;
