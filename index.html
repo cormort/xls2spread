@@ -131,6 +131,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
   <label title="勾選：末頁的天地線高跟其他頁一樣，合計與備註會被包在這個高度裡，備註底部自然對齊其他頁的地線。&#10;不勾：末頁可以用獨立的高度值（右邊的數字），不受其他頁牽制。">
     <input type="checkbox" id="linkend">末頁備註底對齊地線
     <input type="number" id="shend" step="0.5">mm</label>
+  <label title="每頁第一列跟表頭下邊線之間的留白（pt），只影響每頁的第一列">首列留白<input type="number" id="hgap" step="0.5" min="0" max="30">pt</label>
   <label title="天線（表頭上緣）與地線（表格下緣）的粗細，上面「上線／左線」等手動加的框線也用這個值">線粗<input type="number" id="bpt" step="0.25" min="0" max="3">pt</label>
   <label title="畫面檢視縮放，不影響列印，只影響螢幕上看到的大小">檢視<input type="range" id="zm" min="0.3" max="1.5" step="0.05"></label>
   <button id="bview" title="切換顯示模式：滿高（一頁剛好塞滿視窗高度）/ 滿寬（對開塞滿視窗寬度）/ 自訂（手動拉檢視滑桿）">滿高</button>
@@ -646,7 +647,7 @@ function start(model, keepSettings){
   dflt = {h: D.rows.map(r => r.h), breaks: D.breaks.slice(),
           lh: 1.15, fs: 1, zoom: .5, k: D.k, push: true, sh: shDflt, shend: shDflt, linkEnd: true, gap: 0, edits: {},
           rowAligns: {}, colAligns: {}, titleAlign: 'seam',
-          rowBorders: {}, colBorders: {}, borderPt: D.topBorderPt || .5};
+          rowBorders: {}, colBorders: {}, borderPt: D.topBorderPt || .5, headGap: 3};
   if (keepSettings && S && S.h.length === D.rows.length){
     // 換分欄時保留使用者的列高、分頁、縮放等設定，只清掉可能失效的編輯與欄寬
     S.edits = {};
@@ -754,6 +755,7 @@ $('colGrp').addEventListener('mouseover', e => {
   b.title = `${b.dataset.baseTitle}\n⚠ 目前調整欄位：欄 ${colName(v)}（請先確認上方下拉選單）`;
 });
 
+$('hgap').oninput = e => { S.headGap = +e.target.value || 0; render(); store.set(S); };
 $('bpt').oninput = e => {
   S.borderPt = e.target.value === '' ? null : +e.target.value;
   render(); store.set(S);
@@ -858,7 +860,7 @@ const endH = () => S.linkEnd ? S.sh : S.shend;
 const rh = i => S.h[i] + S.gap;
 // 減 2pt：分頁是照列高數字算的，實際渲染還會多出框線厚度，不留餘裕會有頁面剛好擠爆、
 // 填空列被壓成 0，那一頁的地線就會比別頁低個 0.3mm；加 Math.max(10, ...) 避免負數引發死循環
-const capOf = last => Math.max(10, (((last ? endH() : S.sh) * 72 / 25.4) - 2) / S.k - headPt - (last ? footPt : 0));
+const capOf = last => Math.max(10, (((last ? endH() : S.sh) * 72 / 25.4) - 2) / S.k - headPt - (S.headGap || 0) - (last ? footPt : 0));
 const mmOf = h => h * S.k / 72 * 25.4;
 
 // 線粗：沒設過就沿用原檔天線偵測出來的粗細
@@ -1034,6 +1036,9 @@ function makePage(idx, side, no, last, first){
       const td = cellEl('td', edited != null ? Object.assign({}, c, {t: esc(edited)}) : c, rh(i), i, side, ci);
       const w = td.firstChild;
       w.dataset.key = key;
+      // 每頁第一列跟表頭下邊線之間留一點空隙，字才不會貼著線。
+      // 加在 td 的 padding 上（不動 S.h），這一頁的容量在 capOf 裡已經扣掉了。
+      if (i === idx[0] && S.headGap) td.style.paddingTop = (S.headGap * S.k).toFixed(2) + 'pt';
       if (S.editing){ w.contentEditable = 'plaintext-only'; w.spellcheck = false; }
       tr.appendChild(td);
     });
@@ -1573,6 +1578,7 @@ function bind(){
   $('fontFam').value = S.font || '';
   $('titleAlign').value = S.titleAlign || 'seam';
   $('bpt').value = linePt();
+  $('hgap').value = S.headGap || 0;
   populateColAlignSelect();
   setVar();
   applyViewMode(); updateViewBtn();
