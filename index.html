@@ -865,6 +865,15 @@ const mmOf = h => h * S.k / 72 * 25.4;
 const linePt = () => S.borderPt != null ? +S.borderPt : (D.topBorderPt || .5);
 const linePx = () => linePt() + 'pt solid #000';
 
+// 整欄的左右框線覆寫。cellEl 和填空列都要用：填空列直接拿第一列的 class 建 td，
+// 不一起覆寫的話，該欄的直線在頁面下半段的空白區還是會畫出來，看起來就像「關不掉」。
+function colBorder(td, col){
+  const cb = col != null && S.colBorders && S.colBorders[col];
+  if (!cb) return;
+  td.style.borderLeft  = cb === 'left'  || cb === 'both' ? linePx() : 'none';
+  td.style.borderRight = cb === 'right' || cb === 'both' ? linePx() : 'none';
+}
+
 function cellEl(tag, c, h, i, side, ci){
   const td = el(tag, c.c);            // 框線在 td（border-collapse 合併），字的樣式在內層 div
   if (c.cs) td.colSpan = c.cs;
@@ -905,10 +914,19 @@ function cellEl(tag, c, h, i, side, ci){
     td.style.borderTop    = rb === 'top'  || rb === 'both' ? linePx() : 'none';
     td.style.borderBottom = rb === 'bottom' || rb === 'both' ? linePx() : 'none';
   }
-  const cb = c.col != null && S.colBorders && S.colBorders[c.col];
-  if (cb){
-    td.style.borderLeft  = cb === 'left'  || cb === 'both' ? linePx() : 'none';
-    td.style.borderRight = cb === 'right' || cb === 'both' ? linePx() : 'none';
+  colBorder(td, c.col);
+
+  // 「（一）計畫名稱……」換行後，第二行起自動對齊到右括號後面（凸排）。
+  // 括號內容長度不定，用字寬估：全形算 1em、半形算 .5em。
+  if (i != null){
+    const pl = (t || '').replace(/<[^>]*>/g, '');
+    const m = /^[\s　]*（[^）\n]{0,8}）/.exec(pl);
+    if (m){
+      const w0 = [...m[0]].reduce((s, ch) => s + (ch.charCodeAt(0) < 128 ? .5 : 1), 0);
+      w.style.whiteSpace = 'pre-wrap';   // 不放寬就不會換行，凸排也就看不出來
+      w.style.paddingLeft = `calc(3px + ${w0}em)`;
+      w.style.textIndent = `-${w0}em`;
+    }
   }
 
   w.innerHTML = t;
@@ -1026,6 +1044,7 @@ function makePage(idx, side, no, last, first){
   ((D.rows[idx[0]] || D.rows[0])[side]).forEach(c => {
     const t = el('td', c.c);
     if (!last) t.style.borderBottom = linePx();
+    colBorder(t, c.col);
     fill.appendChild(t);
   });
   fill.style.height = '0';
