@@ -416,7 +416,9 @@ async function parseXlsx(buf, fileName){
     t: (r.querySelector('t') || {textContent:''}).textContent,
     c: rgbOf(r.querySelector('rPr > color')),
     f: (r.querySelector('rPr > rFont') || {getAttribute:()=>null}).getAttribute('val'),
-    b: flagOf(r.querySelector('rPr > b'))
+    b: !!r.querySelector('rPr > b') && flagOf(r.querySelector('rPr > b')),
+    hasB: !!r.querySelector('rPr'),          // 有 rPr 才代表這段自己指定過樣式
+    s: +((r.querySelector('rPr > sz') || {getAttribute:()=>null}).getAttribute('val') || 0) || null
   });
   const shared = ssTxt ? [...xml(ssTxt).querySelectorAll('sst > si')].map(si => {
     const rs = [...si.querySelectorAll(':scope > r')];
@@ -436,7 +438,7 @@ async function parseXlsx(buf, fileName){
       const vEl = c.querySelector('v'), isEl = c.querySelector('is');
       cells[ref] = {s: +(c.getAttribute('s') || 0), t: c.getAttribute('t'),
                     v: vEl ? vEl.textContent : null,
-                    is: isEl ? [...isEl.querySelectorAll('r')].map(r2 => ({t:(r2.querySelector('t')||{textContent:''}).textContent, c: rgbOf(r2.querySelector('rPr > color')), f:(r2.querySelector('rPr > rFont')||{getAttribute:()=>null}).getAttribute('val'), b: flagOf(r2.querySelector('rPr > b'))}))
+                    is: isEl ? [...isEl.querySelectorAll('r')].map(r2 => ({t:(r2.querySelector('t')||{textContent:''}).textContent, c: rgbOf(r2.querySelector('rPr > color')), f:(r2.querySelector('rPr > rFont')||{getAttribute:()=>null}).getAttribute('val'), b: !!r2.querySelector('rPr > b') && flagOf(r2.querySelector('rPr > b')), hasB: !!r2.querySelector('rPr'), s: +((r2.querySelector('rPr > sz')||{getAttribute:()=>null}).getAttribute('val') || 0) || null}))
                               .concat(isEl.querySelector(':scope > t') ? [{t: isEl.querySelector(':scope > t').textContent, c: null}] : []) : null};
     });
   });
@@ -564,11 +566,14 @@ function buildModel(x){
 
   // rich text 的每一段可以有自己的字型／粗細（常見用法：中文用微軟正黑體、
   // 英數與括號用 Times New Roman）。跟儲存格層級不同時才輸出，避免多餘的 style。
-  function runSpan(run, cellFont){
+  function runSpan(run, cf){
     const d = [];
     if (run.c) d.push(`color:${run.c}`);
-    if (run.f && run.f !== cellFont) d.push(`font-family:var(--user-font, ${FONT_STACK[run.f] || 'sans-serif'})`);
-    if (run.b) d.push('font-weight:700');
+    if (run.f && run.f !== cf.name) d.push(`font-family:var(--user-font, ${FONT_STACK[run.f] || 'sans-serif'})`);
+    // 粗細兩個方向都要處理：這段是粗體而格子不是 → 加粗；
+    // 這段不是粗體而格子是 → 明確寫回 400，否則會繼承格子的粗體。
+    if (run.hasB && run.b !== !!cf.b) d.push('font-weight:' + (run.b ? 700 : 400));
+    if (run.s && run.s !== cf.sz) d.push(`font-size:calc(${run.s}pt * var(--fs) * var(--k))`);
     return d.length ? `<span style="${d.join(';')}">${esc(run.t)}</span>` : esc(run.t);
   }
 
@@ -576,7 +581,7 @@ function buildModel(x){
     if (x.skip.has(r + ',' + c)) return null;
     const ref = colName(c) + r, cv = x.cells[ref];
     const xf = xfOf(ref);
-    const cellFont = (x.fonts[xf.fontId] || {}).name;
+    const cellFont = x.fonts[xf.fontId] || {};   // 儲存格層級的字型／字級／粗細，run 只在不同時才覆寫
     let t = '';
     if (cv && cv.v != null){
       if (cv.t === 's'){
