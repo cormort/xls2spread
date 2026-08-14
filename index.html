@@ -1210,9 +1210,13 @@ function makePage(idx, side, no, last, first){
   p.style.width = g.w + 'mm'; p.style.height = g.h + 'mm';
   p.style.padding = `${g.mt}mm ${g.mr}mm ${g.mb}mm ${g.ml}mm`;
 
-  D.title.forEach(r => {
+  D.title.forEach((r, k) => {
     const line = el('div','tline'); line.style.height = (r.h * S.k).toFixed(2) + 'pt';
-    r[side].forEach(c => {
+    // 表名列的（續）：原檔有寫就沿用（第一組對開要拿掉），沒寫就自己補在右頁表名的最後。
+    // 只認第一列（表名列）的右半最後一個有字的格子，年度、單位那幾列不加。
+    const lastText = k === 0 && side === 'r'
+      ? r[side].reduce((acc, c, i) => plainOf(c.t) ? i : acc, -1) : -1;
+    r[side].forEach((c, ci) => {
       const s = el('span', c.c);
       // 標題列每頁重複，（續）會出現在每一頁；第一組對開不該有
       let t = first ? c.t.replace(/（續）\s*$/, '') : c.t;
@@ -1231,6 +1235,7 @@ function makePage(idx, side, no, last, first){
       else {
         s.style.textAlign = side === 'r' ? 'left' : 'right';
       }
+      if (!first && ci === lastText && !/（續）$/.test(plainOf(t))) t += '（續）';
       s.innerHTML = t;
       line.appendChild(s);
     });
