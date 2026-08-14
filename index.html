@@ -30,6 +30,15 @@ body{margin:0;background:#8a8a8a;font-family:'PingFang TC',sans-serif}
 #bar button{padding:4px 9px;background:#444;color:#eee;border:1px solid #666;border-radius:4px;cursor:pointer}
 #bar button:hover{background:#555}
 #bar button.active{background:#36c;border-color:#58f}
+/* 常用的版面動作（本頁／全部）用琥珀色，跟一般按鈕的深灰拉開距離 */
+#bar button.act{background:#b45309;border-color:#f59e0b;color:#fff;font-weight:600}
+#bar button.act:hover{background:#d97706}
+/* 輸出動作：綠色 */
+#bar #bprint{background:#047857;border-color:#34d399;color:#fff;font-weight:600}
+#bar #bprint:hover{background:#059669}
+/* 編輯內容：切換型，打開時整塊變紫，一眼看得出正在編輯狀態 */
+#bar label.hot{background:#3b1d63;border:1px solid #7c3aed;border-radius:4px;padding:2px 7px;font-weight:600}
+#bar label.hot:has(input:checked){background:#7c3aed;border-color:#c4b5fd;color:#fff}
 .grp{display:inline-flex;gap:5px;align-items:center;padding:2px 7px;background:#2d2d2d;border-radius:5px;border:1px solid #444}
 .grp select{background:#444;color:#eee;border:1px solid #666;border-radius:4px;padding:2px 4px;font-size:12px}
 .grp-title{font-size:11px;color:#38bdf8;font-weight:700;margin-right:2px;letter-spacing:.5px}
@@ -203,17 +212,17 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
 
   <span class="grp">
     <span class="grp-title">本頁</span>
-    <button id="bfitpage" title="只把這一頁的每一列壓到文字實際需要的高度">最小列高</button>
-    <button id="beven" title="套用「單行列高」與「多行加高」兩個設定，再把剩下的空白平均分給所有列。&#10;單行列＝單行列高；多行列＝內容高＋多行加高；空白間隔列不動。&#10;末頁不攤平（資料少，攤了會把每列撐得很高）。&#10;&#10;改過那兩個數字後要按這裡才會生效。">平均列高</button>
+    <button id="bfitpage" class="act" title="只把這一頁的每一列壓到文字實際需要的高度">最小列高</button>
+    <button id="beven" class="act" title="套用「單行列高」與「多行加高」兩個設定，再把剩下的空白平均分給所有列。&#10;單行列＝單行列高；多行列＝內容高＋多行加高；空白間隔列不動。&#10;末頁不攤平（資料少，攤了會把每列撐得很高）。&#10;&#10;改過那兩個數字後要按這裡才會生效。">平均列高</button>
   </span>
 
   <span class="grp">
     <span class="grp-title">全部</span>
-    <button id="bfitall" title="把所有頁面的每一列都壓到文字實際需要的最小高度">最小列高</button>
-    <button id="bevenall" title="每一頁都套用「單行列高」與「多行加高」，再把剩餘空白平均分給所有列。&#10;末頁只做前半段，不把空白攤到列高上。&#10;&#10;改過那兩個數字後要按這裡才會生效。">平均列高</button>
+    <button id="bfitall" class="act" title="把所有頁面的每一列都壓到文字實際需要的最小高度">最小列高</button>
+    <button id="bevenall" class="act" title="每一頁都套用「單行列高」與「多行加高」，再把剩餘空白平均分給所有列。&#10;末頁只做前半段，不把空白攤到列高上。&#10;&#10;改過那兩個數字後要按這裡才會生效。">平均列高</button>
     <button id="bhtml" title="忽略 Excel 原始列高與分頁，全部依內容重新排版（要回原樣按「重設」）">HTML 重排</button>
-    <button id="bauto" title="清掉所有手動分頁點，改成完全照列高自動流動分頁">清除分頁</button>
-    <button id="bfreeze" title="把目前每一頁的起點通通寫成手動分頁點，並關掉自動分頁。&#10;之後改列高、改字級都不會讓頁面重新流動，版面就定住了。">凍結分頁</button>
+    <button id="bauto" class="act" title="清掉所有手動分頁點，改成完全照列高自動流動分頁">清除分頁</button>
+    <button id="bfreeze" class="act" title="把目前每一頁的起點通通寫成手動分頁點，並關掉自動分頁。&#10;之後改列高、改字級都不會讓頁面重新流動，版面就定住了。">凍結分頁</button>
     <label title="打勾後分頁會依列高自動計算，列高改變時頁面會重新流動"><input type="checkbox" id="push">自動分頁</label>
   </span>
 
@@ -222,7 +231,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <label title="畫面檢視縮放，不影響列印，只影響螢幕上看到的大小"><input type="range" id="zm" min="0.3" max="1.5" step="0.05"></label>
     <button id="bview" title="切換顯示模式：滿高（一頁剛好塞滿視窗高度）/ 滿寬（對開塞滿視窗寬度）/ 自訂（手動拉檢視滑桿）">滿高</button>
     <label title="在每頁底部置中顯示頁碼（左頁奇數、右頁偶數）。預設不顯示。"><input type="checkbox" id="pno">頁碼</label>
-    <label title="打開後可直接點資料格改字。改完不會動到你調好的列高，只有字多到裝不下時才會往上撐。&#10;原檔用來對齊的白色補位字會顯示成灰色，方便刪掉。"><input type="checkbox" id="edit">編輯內容</label>
+    <label class="hot" title="打開後可直接點資料格改字。改完不會動到你調好的列高，只有字多到裝不下時才會往上撐。&#10;原檔用來對齊的白色補位字會顯示成灰色，方便刪掉。"><input type="checkbox" id="edit">編輯內容</label>
     <button id="bundo" title="復原上一步（⌘Z / Ctrl+Z）。註：拖曳換列的順序不在復原範圍內" disabled>復原</button>
     <button id="bredo" title="重做（⇧⌘Z / Ctrl+Shift+Z）" disabled>重做</button>
   </span>
