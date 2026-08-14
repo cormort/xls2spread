@@ -7,7 +7,6 @@
 :root{--fs:1;--lh:1.15;--zoom:1;--k:1}
 *{box-sizing:border-box}
 body{margin:0;background:#8a8a8a;font-family:'PingFang TC',sans-serif}
-body.view-fit{overflow:hidden}
 
 /* ---- 拖曳載入區 ---- */
 #drop{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -1257,12 +1256,10 @@ function applyViewMode(){
   const d = $('doc');
   if (mode === 'manual'){
     d.classList.remove('fit-center');
-    document.body.classList.remove('view-fit');
     return;
   }
   S.zoom = calcFitZoom(mode);
   d.classList.add('fit-center');
-  document.body.classList.toggle('view-fit', mode === 'fitH');
   $('zm').value = S.zoom;
   setVar();
 }
