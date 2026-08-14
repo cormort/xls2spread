@@ -210,7 +210,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
 
   <span class="grp">
     <span class="grp-title">檔案</span>
-    <button id="bprint" title="開啟瀏覽器的列印對話框，可以直接印出或存成 PDF">列印 / 存 PDF</button>
+    <button id="bprint" title="開啟瀏覽器的列印對話框。&#10;目的地務必選「另存為 PDF」，選成 Right PDF／Adobe PDF 等印表機會讓整頁變圖片、PDF 裡沒有文字。">列印 / 存 PDF</button>
     <label title="分散對齊的格子原本是一個字一個元素（字距最準），存成 PDF 後在編輯器裡一字一塊、幾乎不能編。&#10;打勾改用 CSS 兩端對齊，整格是一段連續文字、PDF 編得動，字距由瀏覽器決定、可能跟 Excel 略有差異。"><input type="checkbox" id="pdftext">PDF 文字可編輯</label>
     <button id="bxlsx" title="把調好的列高與分頁寫回 xlsx，其餘內容原封不動，可回 Excel 再微調">匯出 xlsx</button>
     <button id="bsave" title="把目前的列高、分頁、縮放等設定匯出成 JSON 檔，下次可匯入還原">匯出設定</button>
@@ -1822,7 +1822,19 @@ $('bload').onclick = () => {
   f.onchange = () => f.files[0].text().then(t => { S = Object.assign({}, dflt, JSON.parse(t)); bind(); render(); });
   f.click();
 };
-$('bprint').onclick = () => window.print();
+// 網頁無法指定列印目的地（瀏覽器安全限制，沒有 API 可以設定），
+// 選到 Right PDF／Adobe PDF 這類虛擬印表機會整頁點陣化、PDF 裡一個文字字元都沒有。
+// 只能在開對話框前把該選什麼講清楚。
+$('bprint').onclick = () => {
+  const ok = confirm(
+    '列印視窗開啟後，「目的地 / Destination」請選：\n\n' +
+    '        ✅  另存為 PDF（Save as PDF）\n\n' +
+    '不要選 Right PDF、Adobe PDF 或任何印表機名稱 —— 那些會把整頁轉成圖片，' +
+    'PDF 裡沒有文字，Acrobat 會說「此頁僅包含掃描頁面的影像」。\n\n' +
+    '要輸出可編輯文字的 PDF，也可以改按「匯出 xlsx」再用 Excel 另存 PDF。\n\n' +
+    '確定要開啟列印視窗嗎？');
+  if (ok) window.print();
+};
 $('pdftext').onchange = e => { S.pdfText = e.target.checked; render(); store.set(S); };
 $('bundo').onclick = undo;
 $('bredo').onclick = redo;
