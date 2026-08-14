@@ -1146,7 +1146,10 @@ function makePage(idx, side, no, last, first){
   const fill = el('tr');
   ((D.rows[idx[0]] || D.rows[0])[side]).forEach(c => {
     const t = el('td', c.c);
-    if (!last) t.style.borderBottom = linePx();
+    // 末頁的地線平常是合計列的下框線畫的，所以填空列不重複畫。
+    // 但有些檔案整份沒有粗下框線（認不出合計列，D.foot 是空的），這時末頁就沒人畫地線了，
+    // 要由填空列補上，否則最後一頁會少一條線。
+    if (!last || !D.foot.length) t.style.borderBottom = linePx();
     colBorder(t, c.col);
     fill.appendChild(t);
   });
