@@ -109,6 +109,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
   <span class="grp">
     <span class="grp-title">結構</span>
     <label title="選擇左右頁的分界欄位，左邊的欄歸左頁、右邊的歸右頁">分欄<select id="split"></select></label>
+    <label title="列印範圍（A1 格式，例如 A1:T245）。&#10;檔案有設「列印範圍」時自動帶入；沒設就抓有資料的最大範圍。&#10;改這裡等於重新框要排版的區域，列高與分頁會重算。">範圍<input type="text" id="parea" size="10" placeholder="A1:T245"></label>
     <label title="表頭（每頁重複的標題＋欄位名稱）到第幾列為止，下一列開始算資料列。&#10;檔案有設「列印標題」時自動帶入；舊版 .xls 轉檔後通常沒有，要手動填。&#10;填 0 = 沒有表頭。">表頭到<input type="number" id="hdrLast" min="0" step="1">列</label>
   </span>
 
@@ -460,7 +461,9 @@ function buildModel(x){
   const A1 = s => { const m = s.replace(/\$/g,'').split('!').pop().split(':');
                     return [colNum(m[0]), rowNum(m[0]), colNum(m[1]), rowNum(m[1])]; };
   let c1 = 1, r1 = 1, c2 = 1, r2 = 1;
-  if (x.printArea) [c1, r1, c2, r2] = A1(x.printArea);
+  // 列印範圍：工具列手動指定的優先，其次是檔案裡的 Print_Area，都沒有就抓有資料的最大範圍
+  if (x._areaOverride) [c1, r1, c2, r2] = A1(x._areaOverride);
+  else if (x.printArea) [c1, r1, c2, r2] = A1(x.printArea);
   else {
     for (const ref in x.cells){ c2 = Math.max(c2, colNum(ref)); r2 = Math.max(r2, rowNum(ref)); }
   }
@@ -613,7 +616,8 @@ function buildModel(x){
     title: pack(titleRows, true, true), head: pack(headRows),
     rows: pack(bodyRows, true), foot: pack(footRows),
     rowNums: bodyRows,        // 匯出 xlsx 時要把列高寫回原本的列號
-    breaks, css, topBorderPt, splitCol: split, c1, c2, r1, r2, hdrLast: hdrEnd
+    breaks, css, topBorderPt, splitCol: split, c1, c2, r1, r2, hdrLast: hdrEnd,
+    area: colName(c1) + r1 + ':' + colName(c2) + r2
   };
 }
 
@@ -727,6 +731,16 @@ $(`split`).onchange = e => {
   start(model, true);
 };
 // 改表頭範圍會把資料列的數量整個換掉，列高與分頁不能沿用，所以重跑一次完整的 start
+// 改列印範圍 = 重新框要排版的區域，資料列整組換掉，所以跑完整的 start
+$('parea').onchange = e => {
+  if (!RAW) return;
+  const v = e.target.value.trim().toUpperCase().replace(/\$/g, '');
+  if (!/^[A-Z]+\d+:[A-Z]+\d+$/.test(v)){ alert('格式要像 A1:T245'); e.target.value = D.area; return; }
+  RAW._areaOverride = v;
+  RAW._hdrOverride = null;   // 範圍換了，原本的表頭列號多半就不對了
+  try { start(buildModel(RAW)); }
+  catch (err){ alert('這個範圍排不出來：' + err.message); RAW._areaOverride = null; start(buildModel(RAW)); }
+};
 $('hdrLast').onchange = e => {
   if (!RAW) return;
   RAW._hdrOverride = Math.max(0, Math.floor(+e.target.value || 0));
@@ -1641,6 +1655,7 @@ function bind(){
   $('bpt').value = linePt();
   $('hgap').value = S.headGap || 0;
   $('hdrLast').value = D.hdrLast;
+  $('parea').value = D.area;
   populateColAlignSelect();
   setVar();
   applyViewMode(); updateViewBtn();
