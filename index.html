@@ -45,6 +45,8 @@ table{width:100%;border-collapse:collapse;table-layout:fixed}
 td,th{padding:0;vertical-align:top;font-weight:400}
 .cw{overflow:hidden;line-height:var(--lh);padding:0 3px}
 .vc{display:flex;flex-direction:column;justify-content:center}
+.dl{display:flex;justify-content:space-between}
+.dl i{font-style:normal}
 .vb{display:flex;flex-direction:column;justify-content:flex-end}
 tr.sel>td{background:#fff6cc}
 .over{box-shadow:inset 0 -2px 0 #e00}
@@ -388,7 +390,7 @@ function buildModel(x){
                `font-size:calc(${f.sz || 11}pt * var(--fs) * var(--k))`];
     if (f.b) d.push('font-weight:700');
     if (f.color) d.push(`color:${f.color}`);
-    d.push(xf.h === 'distributed' ? 'text-align:justify;text-align-last:justify' : `text-align:${xf.h || 'left'}`);
+    d.push(`text-align:${xf.h === 'distributed' ? 'center' : (xf.h || 'left')}`);
     if (xf.indent) d.push(`padding-left:calc(${xf.indent * .5}em + 2px)`);
     d.push('white-space:' + (xf.wrap ? 'pre-wrap' : 'pre'));
     [['left',b.left],['right',b.right],['top',nohz?null:b.top],['bottom',nohz?null:b.bottom]]
@@ -421,6 +423,11 @@ function buildModel(x){
     } else if (cv && cv.is){
       t = cv.is.map(run => run.c ? `<span style="color:${run.c}">${esc(run.t)}</span>` : esc(run.t)).join('');
     }
+    // 分散對齊：Excel 是把字平均攤滿整格。用 CSS justify 在 CJK 上各家瀏覽器不一致，
+    // 直接把每個字包起來用 flex 推開，結果才穩定。
+    if (xf.h === 'distributed' && t)
+      t = t.split('\n').map(line =>
+        '<span class="dl">' + [...line].map(ch => '<i>' + ch + '</i>').join('') + '</span>').join('');
     const m = x.merges[r + ',' + c] || [1,1];
     const o = {t, c: cls(ref, nohz)};
     if (VAL[xf.v]) o.v = VAL[xf.v];
