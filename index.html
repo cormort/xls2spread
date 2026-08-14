@@ -154,6 +154,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <label title="目前選取列的高度（pt），可直接輸入數字修改"><input type="number" id="rh" step="0.5" disabled>pt</label>
     <button id="bfit" title="把目前選取的那一列壓到文字實際需要的最小高度">最小列高</button>
     <button id="bbrk" title="在目前選取列之前插入手動分頁（快捷鍵 B），再按一次取消">此列前分頁 (B)</button>
+    <button id="bdel" title="從版面刪掉目前選取的資料列。&#10;復原鍵救不回來，會先問一次。&#10;匯出 xlsx 時原檔那一列會被設成隱藏，不是真的刪除。">刪除本列</button>
     <button id="brb_t" class="abtn" title="選取列只畫上框線">上線</button>
     <button id="brb_b" class="abtn" title="選取列只畫下框線">下線</button>
     <button id="brb_both" class="abtn" title="選取列上下都畫框線">上下</button>
@@ -816,13 +817,19 @@ async function exportXlsx(){
   try {
     let txt = await entry(SRC.z, SRC.path);
     const hByRow = new Map(D.rowNums.map((rn,i) => [rn, rh(i)]));
+    const gone = new Set(S.deletedRowNums || []);   // 刪掉的列改成隱藏，不動內容與公式
     txt = txt.replace(/<row\b[^>]*?\/?>/g, tag => {
       const m = /\sr="(\d+)"/.exec(tag);
-      if (!m || !hByRow.has(+m[1])) return tag;
+      if (!m) return tag;
+      const rn = +m[1];
+      if (!hByRow.has(rn) && !gone.has(rn)) return tag;
       const selfClose = tag.endsWith('/>');
       let t = tag.slice(0, selfClose ? -2 : -1)
-                 .replace(/\s(ht|customHeight)="[^"]*"/g, '');
-      return `${t} ht="${hByRow.get(+m[1]).toFixed(2)}" customHeight="true"${selfClose ? '/>' : '>'}`;
+                 .replace(/\s(ht|customHeight|hidden)="[^"]*"/g, '');
+      const attrs = gone.has(rn)
+        ? ' hidden="true"'
+        : ` ht="${hByRow.get(rn).toFixed(2)}" customHeight="true"`;
+      return `${t}${attrs}${selfClose ? '/>' : '>'}`;
     });
     // 編輯過的內容寫回儲存格：像數字就存數字，否則存成 inline 字串（公式會被取代掉）
     const xesc = t => t.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
@@ -1324,6 +1331,50 @@ function moveRow(from, to, pos){
   render();
   select(sel);
 }
+
+// ---- 刪除資料列 ----
+// 刪掉的列號記在 S.deletedRowNums，匯出 xlsx 時把原檔那幾列設成隱藏
+// （不真的刪列，公式與參照才不會整份跑掉）。
+// ponytail: 跟拖曳換列一樣動到 D.rows，⌘Z 復原不回來，所以按鈕要先問一次。
+function deleteRow(i){
+  if (i < 0 || i >= D.rows.length || D.rows.length <= 1) return;
+
+  D.rows.splice(i, 1);
+  const [rn] = D.rowNums.splice(i, 1);
+  S.h.splice(i, 1);
+  if (dflt && dflt.h) dflt.h.splice(i, 1);
+
+  // 索引大於被刪那列的往前補一格；等於的直接丟掉
+  const shift = o => {
+    if (!o) return o;
+    const out = {};
+    Object.entries(o).forEach(([k, v]) => { const c = +k; if (c !== i) out[c > i ? c - 1 : c] = v; });
+    return out;
+  };
+  S.rowBorders = shift(S.rowBorders);
+
+  const newEdits = {};
+  Object.entries(S.edits).forEach(([k, v]) => {
+    const [ri, side, ci] = k.split('|');
+    if (+ri === i) return;
+    newEdits[`${+ri > i ? +ri - 1 : +ri}|${side}|${ci}`] = v;
+  });
+  S.edits = newEdits;
+
+  // 分頁點落在被刪那列時不丟掉：後面那列遞補到同一個索引，分頁邊界就保住了
+  S.breaks = [...new Set((S.breaks || []).map(b => b > i ? b - 1 : b))]
+    .filter(b => b > 0 && b < D.rows.length).sort((a,b) => a-b);
+
+  (S.deletedRowNums = S.deletedRowNums || []).push(rn);
+
+  render();
+  select(Math.min(i, D.rows.length - 1));
+  store.set(S);
+}
+$('bdel').onclick = () => {
+  if (sel < 0){ alert('請先點選要刪除的資料列'); return; }
+  if (confirm(`刪除第 ${sel + 1} 列？（復原鍵救不回來）`)) deleteRow(sel);
+};
 
 // ---- 欄寬拖曳 ----
 function colWidths(side){
