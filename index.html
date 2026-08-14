@@ -7,6 +7,7 @@
 :root{--fs:1;--lh:1.15;--zoom:1;--k:1}
 *{box-sizing:border-box}
 body{margin:0;background:#8a8a8a;font-family:'PingFang TC',sans-serif}
+body.view-fit{overflow:hidden}
 
 /* ---- 拖曳載入區 ---- */
 #drop{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -29,9 +30,11 @@ body{margin:0;background:#8a8a8a;font-family:'PingFang TC',sans-serif}
 #bar input[type=number]{width:64px;padding:2px 4px}
 #bar button{padding:4px 9px;background:#444;color:#eee;border:1px solid #666;border-radius:4px;cursor:pointer}
 #bar button:hover{background:#555}
+#bar button.active{background:#36c;border-color:#58f}
 #hint{opacity:.6;font-size:12px}
 
 #doc{padding:20px;transform-origin:top left;transform:scale(var(--zoom));width:max-content}
+#doc.fit-center{margin:0 auto;transform-origin:top center}
 .spread{position:relative;display:flex;gap:12px;margin-bottom:18px;padding-left:58px}
 .gut{position:absolute;left:0;top:0;width:54px;font-size:10px;color:#ddd;text-align:right}
 .glab{position:absolute;right:4px;transform:translateY(-100%);cursor:pointer;white-space:nowrap}
@@ -47,6 +50,9 @@ td,th{padding:0;vertical-align:top;font-weight:400}
 .vc{display:flex;flex-direction:column;justify-content:center}
 .dl{display:flex;justify-content:space-between}
 .dl i{font-style:normal}
+.editing .cw[contenteditable]{outline:1px dashed #6cf;outline-offset:-1px}
+.editing .cw[contenteditable]:focus{outline:2px solid #06c;background:#eef6ff}
+.editing .cw span[style*="FFFFFF"]{color:#c8c8c8!important}
 .vb{display:flex;flex-direction:column;justify-content:flex-end}
 tr.sel>td{background:#fff6cc}
 .over{box-shadow:inset 0 -2px 0 #e00}
@@ -87,6 +93,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
 
 <div id="bar" class="hide">
   <b id="fname"></b>
+  <label>分欄<select id="split"></select></label>
   <label>縮放<input type="range" id="k" min="0.5" max="1.2" step="0.005"><span id="kv"></span></label>
   <label title="每一列額外墊高，等於拉開它跟下一列之間的距離；全部頁面一起套用">
     列間距<input type="range" id="gap" min="0" max="24" step="0.5"><span id="gapv"></span></label>
@@ -97,8 +104,10 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <input type="checkbox" id="linkend">末頁備註底對齊地線
     <input type="number" id="shend" step="0.5">mm</label>
   <label>檢視<input type="range" id="zm" min="0.3" max="1.5" step="0.05"></label>
+  <button id="bview" title="切換顯示模式：配合頁高 / 配合頁寬">配高</button>
   <label>本列高<input type="number" id="rh" step="0.5" disabled>pt</label>
   <button id="bfit">選取列配高</button>
+  <button id="bfitpage" title="只把這一頁的每一列壓到文字實際需要的高度">本頁配高</button>
   <button id="bfitall">全部配高</button>
   <button id="bhtml">HTML 重排</button>
   <button id="beven" title="把該頁剩下的空白平均加到每一列，看起來不會上密下空">本頁均分</button>
@@ -106,6 +115,8 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
   <button id="bbrk">此列前分頁 (B)</button>
   <button id="bauto">清掉全部手動分頁</button>
   <label><input type="checkbox" id="push">依列高自動分頁（前後流動）</label>
+  <label title="打開後可直接點資料格改字，改完會自動重新配高；原檔用來對齊的白色補位字會顯示成灰色，方便刪掉">
+    <input type="checkbox" id="edit">編輯內容</label>
   <button id="bxlsx" title="把調好的列高與分頁寫回 xlsx，其餘內容原封不動，可回 Excel 再微調">匯出 xlsx</button>
   <button id="bsave">匯出設定</button>
   <button id="bload">匯入設定</button>
@@ -234,6 +245,7 @@ const rgbOf = el_ => {
 };
 
 let SRC = null;   // 原始 xlsx 的位元組與工作表路徑，匯出時要用
+let RAW = null;   // buildModel 的原始輸入，換分欄時重跑用
 
 async function parseXlsx(buf, fileName){
   const z = await unzip(buf);
@@ -340,7 +352,7 @@ async function parseXlsx(buf, fileName){
   const ps = sh.querySelector('pageSetup') || {getAttribute: () => null};
   const num = (v, d) => v == null ? d : +v;
 
-  return buildModel({
+  RAW = {
     fileName, sheetName: pick.name,
     printArea: defName('_xlnm.Print_Area', pick.idx),
     printTitles: defName('_xlnm.Print_Titles', pick.idx),
@@ -352,7 +364,8 @@ async function parseXlsx(buf, fileName){
     margins: {l: num(pm.getAttribute('left'), .75), r: num(pm.getAttribute('right'), .75),
               t: num(pm.getAttribute('top'), 1), b: num(pm.getAttribute('bottom'), 1)},
     cells, rowH, hidden, defRowH, colW, merges, skip, shared, xfs, fonts, borders, numFmt
-  });
+  };
+  return buildModel(RAW);
 }
 
 /* ============================ 組版面模型 ============================ */
@@ -365,7 +378,9 @@ function buildModel(x){
   else {
     for (const ref in x.cells){ c2 = Math.max(c2, colNum(ref)); r2 = Math.max(r2, rowNum(ref)); }
   }
-  const split = x.colBreaks.length ? x.colBreaks[0] : c2;
+  let split = x.colBreaks.length ? x.colBreaks[0] : c2;
+  // 手動指定的分欄優先
+  if (x._splitOverride != null) split = x._splitOverride;
   const halves = {l: [], r: []};
   for (let c = c1; c <= c2; c++) (c <= split ? halves.l : halves.r).push(c);
   if (!halves.r.length){ halves.r = halves.l.splice(Math.ceil(halves.l.length/2)); }
@@ -379,8 +394,9 @@ function buildModel(x){
 
   // CSS class 收斂
   const cssMap = new Map(), css = [];
-  function cls(ref, nohz){
-    const xf = xfOf(ref), f = x.fonts[xf.fontId] || {}, b = bdOf(ref);
+  function cls(ref, nohz, nobd){
+    const xf = xfOf(ref), f = x.fonts[xf.fontId] || {}, b0 = bdOf(ref);
+    const b = nobd ? {} : b0;    // 標題區不畫框線：天線是第一列表頭的上框線畫的，重複畫會變粗
     const sig = [f.name, f.sz, !!f.b, f.color, xf.h, xf.v, xf.wrap, xf.indent,
                  b.left, b.right, nohz ? null : b.top, nohz ? null : b.bottom].join('|');
     if (cssMap.has(sig)) return cssMap.get(sig);
@@ -393,14 +409,18 @@ function buildModel(x){
     d.push(`text-align:${xf.h === 'distributed' ? 'center' : (xf.h || 'left')}`);
     if (xf.indent) d.push(`padding-left:calc(${xf.indent * .5}em + 2px)`);
     d.push('white-space:' + (xf.wrap ? 'pre-wrap' : 'pre'));
-    [['left',b.left],['right',b.right],['top',nohz?null:b.top],['bottom',nohz?null:b.bottom]]
-      .forEach(([s,v]) => { if (v) d.push(`border-${s}:${BW[v] || .5}pt solid #000`); });
     css.push(`.${nm}{${d.join(';')}}`);
+    // 框線畫在 td 上，讓 border-collapse 把相鄰的合成一條連續線。
+    // 畫在內層 div 的話，一條縱線會變成每列一小段、左右兩格各畫一次，接縫在非整數像素上會忽粗忽細。
+    const bd = [];
+    [['left',b.left],['right',b.right],['top',nohz?null:b.top],['bottom',nohz?null:b.bottom]]
+      .forEach(([s,v]) => { if (v) bd.push(`border-${s}:${BW[v] || .5}pt solid #000`); });
+    if (bd.length) css.push(`td.${nm},th.${nm}{${bd.join(';')}}`);
     return nm;
   }
 
   const VAL = {center:'vc', bottom:'vb'};
-  function cell(r, c, nohz){
+  function cell(r, c, nohz, nobd){
     if (x.skip.has(r + ',' + c)) return null;
     const ref = colName(c) + r, cv = x.cells[ref];
     const xf = xfOf(ref);
@@ -429,7 +449,7 @@ function buildModel(x){
       t = t.split('\n').map(line =>
         '<span class="dl">' + [...line].map(ch => '<i>' + ch + '</i>').join('') + '</span>').join('');
     const m = x.merges[r + ',' + c] || [1,1];
-    const o = {t, c: cls(ref, nohz)};
+    const o = {t, c: cls(ref, nohz, nobd), col: c};
     if (VAL[xf.v]) o.v = VAL[xf.v];
     if (m[0] > 1) o.rs = m[0];
     if (m[1] > 1) o.cs = m[1];
@@ -438,9 +458,9 @@ function buildModel(x){
 
   const rowh = r => Math.round((x.rowH[r] || x.defRowH) * 100) / 100;
   const plain = t => t.replace(/<[^>]*>/g, '').replace(/[\s\u3000]/g, '');
-  const pack = (rows, nohz) => rows.map(r => {
-    const l = halves.l.map(c => cell(r, c, nohz)).filter(Boolean);
-    const rr = halves.r.map(c => cell(r, c, nohz)).filter(Boolean);
+  const pack = (rows, nohz, nobd) => rows.map(r => {
+    const l = halves.l.map(c => cell(r, c, nohz, nobd)).filter(Boolean);
+    const rr = halves.r.map(c => cell(r, c, nohz, nobd)).filter(Boolean);
     return {
       h: rowh(r), l, r: rr,
       ind: xfOf(colName(halves.l[0]) + r).indent || 0,   // 縮排層級，用來認出群組標題
@@ -484,15 +504,26 @@ function buildModel(x){
   const k = x.fitToPage ? Math.min(1, Math.round(printablePx / naturalPx * 1e4) / 1e4)
                         : (x.scale || 100) / 100;
 
+  // 偵測天線粗細：取第一列表頭的上框線樣式，地線要畫成跟它一樣粗
+  let topBorderStyle = 'thin';   // 預設 thin
+  if (headRows.length) {
+    const firstHR = headRows[0];
+    for (const c of allc) {
+      const b = bdOf(colName(c) + firstHR);
+      if (b.top) { topBorderStyle = b.top; break; }
+    }
+  }
+  const topBorderPt = BW[topBorderStyle] || .5;
+
   return {
     name: x.fileName, sheet: x.sheetName, k,
     page: {w: pw, h: ph, ml: +(x.margins.l * 25.4).toFixed(2), mr: +(x.margins.r * 25.4).toFixed(2),
            mt: +(x.margins.t * 25.4).toFixed(2), mb: +(x.margins.b * 25.4).toFixed(2)},
     cols: {l: widths('l'), r: widths('r')},
-    title: pack(titleRows), head: pack(headRows),
+    title: pack(titleRows, true, true), head: pack(headRows),
     rows: pack(bodyRows, true), foot: pack(footRows),
     rowNums: bodyRows,        // 匯出 xlsx 時要把列高寫回原本的列號
-    breaks, css
+    breaks, css, topBorderPt, splitCol: split, c1, c2
   };
 }
 
@@ -533,7 +564,7 @@ let D, S, dflt, titlePt, headPt, footPt, sel = -1;
 const MM = 96/25.4, PT = 96/72;
 let KEY = '', store = {get: () => ({}), set: () => {}};
 
-function start(model){
+function start(model, keepSettings){
   D = model;
   if (!D.rows.length) throw new Error('列印範圍內沒有資料列');
   KEY = 'spread:' + D.name + ':' + D.sheet;
@@ -546,14 +577,19 @@ function start(model){
   footPt  = D.foot.reduce((s,r) => s + r.h, 0);
   const shDflt = +((D.page.h - D.page.mt - D.page.mb) - titlePt * D.k / 72 * 25.4).toFixed(1);
   dflt = {h: D.rows.map(r => r.h), breaks: D.breaks.slice(),
-          lh: 1.15, fs: 1, zoom: .5, k: D.k, push: true, sh: shDflt, shend: shDflt, linkEnd: true, gap: 0};
-  const saved = store.get();
-  S = Object.assign({}, dflt, saved);
-  // Object.assign 只複製陣列參照，不切一份的話改列高會把 dflt 一起改掉，「重設」就救不回來
-  S.h = S.h.slice(); S.breaks = S.breaks.slice();
-  if (S.h.length !== D.rows.length){ S.h = dflt.h.slice(); S.breaks = dflt.breaks.slice(); }
+          lh: 1.15, fs: 1, zoom: .5, k: D.k, push: true, sh: shDflt, shend: shDflt, linkEnd: true, gap: 0, edits: {}};
+  if (keepSettings && S && S.h.length === D.rows.length){
+    // 換分欄時保留使用者的列高、分頁、縮放等設定，只清掉可能失效的編輯與欄寬
+    S.edits = {};
+    S.colWidths = null;
+  } else {
+    const saved = store.get();
+    S = Object.assign({}, dflt, saved);
+    S.h = S.h.slice(); S.breaks = S.breaks.slice(); S.edits = Object.assign({}, S.edits);
+    if (S.h.length !== D.rows.length){ S.h = dflt.h.slice(); S.breaks = dflt.breaks.slice(); }
+  }
   sel = -1;
-  var firstTime = !Object.keys(saved).length;
+  var firstTime = !keepSettings && !Object.keys(store.get()).length;
 
   $('dyn').textContent = D.css.join('\n')
     + `\n@media print{@page{size:${D.page.w}mm ${D.page.h}mm;margin:0}`
@@ -561,11 +597,27 @@ function start(model){
   $('fname').textContent = D.name + ' / ' + D.sheet;
   $('drop').classList.add('hide');
   $('bar').classList.remove('hide');
+  populateSplitSelect();
   bind(); render();
-  // Excel 的列高被儲存格網格撐大、分頁也是遷就格線切的；HTML 沒這限制。
-  // 第一次載入就照內容重排（要 Excel 原樣按「重設」）。
   if (firstTime) htmlLayout();
 }
+
+function populateSplitSelect(){
+  const sel = $('split');
+  sel.innerHTML = '';
+  for (let c = D.c1; c < D.c2; c++){
+    const o = el('option');
+    o.value = c; o.textContent = colName(c) + ' | ' + colName(c+1);
+    if (c === D.splitCol) o.selected = true;
+    sel.appendChild(o);
+  }
+}
+$('split').onchange = e => {
+  if (!RAW) return;
+  RAW._splitOverride = +e.target.value;
+  const model = buildModel(RAW);
+  start(model, true);
+};
 
 // 把一頁剩下的空白平均分給該頁每一列，讓行距看起來一致，不會上面擠、下面一大塊空白。
 // 無條件捨去到 0.1pt，確保加完的總高不會反而超過容量、害最後一列被擠到下一頁。
@@ -598,6 +650,23 @@ async function exportXlsx(){
                  .replace(/\s(ht|customHeight)="[^"]*"/g, '');
       return `${t} ht="${hByRow.get(+m[1]).toFixed(2)}" customHeight="true"${selfClose ? '/>' : '>'}`;
     });
+    // 編輯過的內容寫回儲存格：像數字就存數字，否則存成 inline 字串（公式會被取代掉）
+    const xesc = t => t.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    Object.entries(S.edits).forEach(([key, text]) => {
+      const [i, side, ci] = key.split('|');
+      const cell = D.rows[+i][side][+ci];
+      if (!cell) return;
+      const ref = colName(cell.col) + D.rowNums[+i];
+      const n = text.replace(/,/g, '').trim();
+      const isNum = n !== '' && isFinite(n);
+      const inner = isNum ? `<v>${n}</v>` : `<is><t xml:space="preserve">${xesc(text)}</t></is>`;
+      txt = txt.replace(new RegExp(`<c r="${ref}"([^>]*)/>|<c r="${ref}"([^>]*)>[\\s\\S]*?</c>`), (m, a1, a2) => {
+        let attrs = (a1 || a2 || '').replace(/\st="[^"]*"/, '');
+        if (!isNum) attrs += ' t="inlineStr"';
+        return `<c r="${ref}"${attrs}>${inner}</c>`;
+      });
+    });
+
     // 分頁：brk 的 id 是「這一列之後分頁」，所以寫每頁的最後一列
     const ids = pages().slice(0, -1).map(idx => D.rowNums[idx[idx.length-1]]);
     const xmlBrk = `<rowBreaks count="${ids.length}" manualBreakCount="${ids.length}">`
@@ -639,7 +708,7 @@ const capOf = last => (((last ? endH() : S.sh) * 72 / 25.4) - 2) / S.k - headPt 
 const mmOf = h => h * S.k / 72 * 25.4;
 
 function cellEl(tag, c, h){
-  const td = el(tag);
+  const td = el(tag, c.c);            // 框線在 td（border-collapse 合併），字的樣式在內層 div
   if (c.cs) td.colSpan = c.cs;
   if (c.rs) td.rowSpan = c.rs;
   const w = el('div', 'cw ' + c.c + (c.v ? ' ' + c.v : ''));
@@ -693,6 +762,7 @@ function pages(){
 
 function makePage(idx, side, no, last, first){
   const g = D.page, p = el('div','page');
+  p.dataset.side = side;
   p.style.width = g.w + 'mm'; p.style.height = g.h + 'mm';
   p.style.padding = `${g.mt}mm ${g.mr}mm ${g.mb}mm ${g.ml}mm`;
 
@@ -708,7 +778,7 @@ function makePage(idx, side, no, last, first){
   });
 
   const tb = el('table'), cg = el('colgroup');
-  D.cols[side].forEach(w => { const co = el('col'); co.style.width = w + '%'; cg.appendChild(co); });
+  colWidths(side).forEach(w => { const co = el('col'); co.style.width = w + '%'; cg.appendChild(co); });
   tb.appendChild(cg);
 
   const head = el('thead');
@@ -726,14 +796,22 @@ function makePage(idx, side, no, last, first){
   idx.forEach(i => {
     const tr = el('tr'); tr.dataset.i = i;
     if (i === sel) tr.className = 'sel';
-    D.rows[i][side].forEach(c => tr.appendChild(cellEl('td', c, rh(i))));
+    D.rows[i][side].forEach((c, ci) => {
+      const key = i + '|' + side + '|' + ci;
+      const edited = S.edits[key];
+      const td = cellEl('td', edited != null ? Object.assign({}, c, {t: esc(edited)}) : c, rh(i));
+      const w = td.firstChild;
+      w.dataset.key = key;
+      if (S.editing){ w.contentEditable = 'plaintext-only'; w.spellcheck = false; }
+      tr.appendChild(td);
+    });
     body.appendChild(tr);
   });
 
   const fill = el('tr');
   ((D.rows[idx[0]] || D.rows[0])[side]).forEach(c => {
-    const t = el('td'); t.className = c.c;
-    if (!last) t.style.borderBottom = '1pt solid #000';
+    const t = el('td', c.c);
+    if (!last) t.style.borderBottom = (D.topBorderPt || .5) + 'pt solid #000';
     fill.appendChild(t);
   });
   fill.style.height = '0';
@@ -853,17 +931,64 @@ function fit(i){
   S.h[i] = Math.max(4, Math.ceil(px / PT / S.k * 10) / 10);
 }
 
-let drag = null;
+let drag = null, colDrag = null;
 const doc = $('doc');
+
+// ---- 欄寬拖曳 ----
+function colWidths(side){
+  return (S.colWidths && S.colWidths[side]) || D.cols[side];
+}
+function findColEdge(e){
+  const page = e.target.closest('.page');
+  if (!page || !page._tb) return null;
+  const thead = page._tb.querySelector('thead');
+  if (!thead) return null;
+  const r = thead.getBoundingClientRect();
+  if (e.clientY < r.top || e.clientY > r.bottom) return null;
+  const side = page.dataset.side;
+  const widths = colWidths(side);
+  const tr = page._tb.getBoundingClientRect();
+  let cumX = tr.left;
+  for (let i = 0; i < widths.length - 1; i++){
+    cumX += widths[i] / 100 * tr.width;
+    if (Math.abs(e.clientX - cumX) < 4 * S.zoom)
+      return {side, col: i, tableW: tr.width};
+  }
+  return null;
+}
+
 doc.addEventListener('pointermove', e => {
+  if (colDrag){
+    const dp = (e.clientX - colDrag.startX) / colDrag.tableW * 100;
+    const nw = colDrag.origWidths.slice();
+    const a = colDrag.origWidths[colDrag.col] + dp;
+    const b = colDrag.origWidths[colDrag.col + 1] - dp;
+    if (a < 1 || b < 1) return;
+    nw[colDrag.col] = a; nw[colDrag.col + 1] = b;
+    if (!S.colWidths) S.colWidths = {};
+    S.colWidths[colDrag.side] = nw;
+    document.querySelectorAll(`.page[data-side="${colDrag.side}"] table colgroup`).forEach(cg => {
+      [...cg.children].forEach((c, i) => { c.style.width = nw[i] + '%'; });
+    });
+    return;
+  }
   if (drag){
     S.h[drag.i] = Math.max(4, Math.round((drag.h0 + (e.clientY - drag.y) / S.zoom / PT / S.k) * 10) / 10);
     applyH(drag.i); return;
   }
+  const ce = findColEdge(e);
+  if (ce){ doc.style.cursor = 'col-resize'; return; }
   const tr = e.target.closest('tr[data-i]');
   doc.style.cursor = tr && (tr.getBoundingClientRect().bottom - e.clientY) < 5 * S.zoom ? 'row-resize' : '';
 });
 doc.addEventListener('pointerdown', e => {
+  const ce = findColEdge(e);
+  if (ce){
+    colDrag = {side: ce.side, col: ce.col, startX: e.clientX,
+              origWidths: colWidths(ce.side).slice(), tableW: ce.tableW};
+    e.preventDefault(); doc.setPointerCapture(e.pointerId);
+    return;
+  }
   const tr = e.target.closest('tr[data-i]'); if (!tr) return;
   const i = +tr.dataset.i; select(i);
   if ((tr.getBoundingClientRect().bottom - e.clientY) < 5 * S.zoom){
@@ -871,7 +996,10 @@ doc.addEventListener('pointerdown', e => {
     e.preventDefault(); doc.setPointerCapture(e.pointerId);
   }
 });
-doc.addEventListener('pointerup', () => { if (drag){ drag = null; render(); } });
+doc.addEventListener('pointerup', () => {
+  if (colDrag){ colDrag = null; render(); return; }
+  if (drag){ drag = null; render(); }
+});
 doc.addEventListener('dblclick', e => {
   const tr = e.target.closest('tr[data-i]'); if (!tr) return;
   fit(+tr.dataset.i); render();
@@ -895,10 +1023,47 @@ function toggleBreak(){
 $('bbrk').onclick = toggleBreak;
 $('bfit').onclick = () => { if (sel >= 0){ fit(sel); render(); } };
 $('bfitall').onclick = () => { D.rows.forEach((_,i) => fit(i)); render(); };
+$('bfitpage').onclick = () => {
+  const pg = pages().find(idx => idx.includes(sel));
+  if (!pg){ alert('先點選要調整的那一頁裡的任一列'); return; }
+  pg.forEach(i => fit(i)); render();
+};
 $('bauto').onclick = () => {
   if (confirm('清掉全部 ' + S.breaks.length + ' 個手動分頁點，改成完全照列高流動？')){ S.breaks = []; render(); }
 };
 $('push').onchange = e => { S.push = e.target.checked; render(); };
+// --- 直接改資料 ---
+$('edit').onchange = e => {
+  S.editing = e.target.checked;
+  document.body.classList.toggle('editing', S.editing);
+  render();
+};
+// 改完（離開該格）才存檔重排，才不會邊打字邊跳掉游標
+function commitEdit(w){
+  if (!w || !w.dataset.key) return false;
+  const key = w.dataset.key, txt = w.innerText.replace(/\u00a0/g, ' ').replace(/\n$/, '');
+  const [i, side, ci] = key.split('|');
+  const 原文 = (D.rows[+i][side][+ci].t || '').replace(/<[^>]*>/g, '')
+                 .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
+  const 變了 = txt !== (S.edits[key] != null ? S.edits[key] : 原文);
+  if (txt === 原文) delete S.edits[key]; else S.edits[key] = txt;
+  if (變了){ fit(+i); render(); }
+  return 變了;
+}
+doc.addEventListener('focusout', e => {
+  const w = e.target.closest && e.target.closest('.cw[contenteditable]');
+  if (w) commitEdit(w);
+});
+doc.addEventListener('keydown', e => {
+  if (!S.editing) return;
+  const w = e.target.closest && e.target.closest('.cw[contenteditable]');
+  if (!w) return;
+  if (e.key === 'Escape'){ w.blur(); }
+  e.stopPropagation();               // 編輯時 ↑↓ 和 B 不要被當成調列高／分頁
+});
+// 編輯中不要觸發拖曳改列高／選取列
+doc.addEventListener('pointerdown', e => { if (S.editing) e.stopPropagation(); }, true);
+
 $('bxlsx').onclick = exportXlsx;
 $('bhtml').onclick = htmlLayout;
 $('beven').onclick = () => evenOut(false);
@@ -920,10 +1085,14 @@ function bind(){
   $('lh').value = S.lh; $('fs').value = S.fs; $('sh').value = S.sh; $('gap').value = S.gap;
   $('zm').value = S.zoom; $('k').value = S.k;
   $('push').checked = S.push;
+  $('edit').checked = !!S.editing;
+  document.body.classList.toggle('editing', !!S.editing);
   $('linkend').checked = S.linkEnd;
   $('shend').disabled = S.linkEnd;
   $('shend').value = endH();
+  if (!S.viewMode) S.viewMode = 'fitH';
   setVar();
+  applyViewMode(); updateViewBtn();
 }
 const redraw = () => { clearTimeout(window._r); window._r = setTimeout(render, 150); };
 $('k').oninput  = e => { S.k = +e.target.value; setVar(); redraw(); };
@@ -933,7 +1102,47 @@ $('fs').oninput = e => { S.fs = +e.target.value; setVar(); redraw(); };
 $('sh').onchange = e => { S.sh = +e.target.value; bind(); render(); };
 $('shend').onchange = e => { S.shend = +e.target.value; render(); };
 $('linkend').onchange = e => { S.linkEnd = e.target.checked; bind(); render(); };
-$('zm').oninput = e => { S.zoom = +e.target.value; setVar(); };
+$('zm').oninput = e => { S.zoom = +e.target.value; S.viewMode = 'manual'; setVar(); updateViewBtn(); };
+
+// ---- Fit Height / Fit Width 切換 ----
+function calcFitZoom(mode){
+  if (!D) return .5;
+  const pw = D.page.w, ph = D.page.h;
+  const vpW = window.innerWidth, vpH = window.innerHeight - ($('bar').offsetHeight || 40);
+  // spread 是兩頁並排 + 12px gap + 58px 左側標尺 + 40px padding
+  const spreadW = pw * 2 * (96/25.4) + 12 + 58 + 40;
+  const pageH = ph * (96/25.4) + 40;
+  if (mode === 'fitW') return Math.min(1.5, vpW / spreadW);
+  return Math.min(1.5, vpH / pageH);
+}
+function applyViewMode(){
+  const mode = S.viewMode || 'fitH';
+  const d = $('doc');
+  if (mode === 'manual'){
+    d.classList.remove('fit-center');
+    document.body.classList.remove('view-fit');
+    return;
+  }
+  S.zoom = calcFitZoom(mode);
+  d.classList.add('fit-center');
+  document.body.classList.toggle('view-fit', mode === 'fitH');
+  $('zm').value = S.zoom;
+  setVar();
+}
+function updateViewBtn(){
+  const b = $('bview');
+  const mode = S.viewMode || 'fitH';
+  b.textContent = mode === 'fitH' ? '配高' : mode === 'fitW' ? '配寬' : '自訂';
+  b.classList.toggle('active', mode !== 'manual');
+}
+$('bview').onclick = () => {
+  const m = S.viewMode || 'fitH';
+  S.viewMode = m === 'fitH' ? 'fitW' : m === 'fitW' ? 'manual' : 'fitH';
+  applyViewMode(); updateViewBtn(); store.set(S);
+};
+window.addEventListener('resize', () => {
+  if ((S.viewMode || 'fitH') !== 'manual') applyViewMode();
+});
 </script>
 </body>
 </html>
