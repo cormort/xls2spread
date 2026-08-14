@@ -789,7 +789,13 @@ function makePage(idx, side, no, last, first){
     r[side].forEach(c => {
       const s = el('span', c.c);
       // 標題列每頁重複，（續）會出現在每一頁；第一組對開不該有
-      s.innerHTML = first ? c.t.replace(/（續）\s*$/, '') : c.t;
+      let t = first ? c.t.replace(/（續）\s*$/, '') : c.t;
+      if (side === 'r'){
+        // 偶數頁（右頁）表名去除開頭的全形與半形空白，確保「畫」字完全靠左
+        t = t.replace(/^[\s\u3000]+/, '');
+        if (/^畫/.test(t.replace(/<[^>]*>/g, '').trim())) s.style.textAlign = 'left';
+      }
+      s.innerHTML = t;
       line.appendChild(s);
     });
     p.appendChild(line);
