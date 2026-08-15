@@ -1242,7 +1242,8 @@ function makePage(idx, side, no, last, first){
     r[side].forEach((c, ci) => {
       const s = el('span', c.c);
       // 標題列每頁重複，（續）會出現在每一頁；第一組對開不該有
-      let t = first ? c.t.replace(/（續）\s*$/, '') : c.t;
+      // 收尾可能還跟著 </span> 之類的標籤，所以允許（續）後面接標籤與空白
+      let t = first ? c.t.replace(/[（(]\s*續\s*[)）][\s　]*(?=(?:<\/[^>]+>)*$)/, '') : c.t;
       if (side === 'r'){
         // 偶數頁（右頁）表名去除開頭的全形與半形空白，確保「畫」字完全靠左
         t = t.replace(/^[\s\u3000]+/, '');
