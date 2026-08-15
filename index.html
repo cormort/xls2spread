@@ -4,7 +4,10 @@
 <meta charset="utf-8">
 <title>對開表排版</title>
 <style>
-:root{--fs:1;--lh:1.15;--zoom:1;--k:1}
+:root{--fs:1;--lh:1.15;--zoom:1;--k:1;
+  --act:#b45309;--act-bd:#f59e0b;   /* 版面動作：琥珀 */
+  --out:#047857;--out-bd:#34d399;   /* 輸出：綠 */
+  --danger:#b91c1c;--danger-bd:#f87171}   /* 危險：紅 */
 *{box-sizing:border-box}
 body{margin:0;background:#8a8a8a;font-family:'PingFang TC',sans-serif}
 
@@ -31,26 +34,50 @@ body{margin:0;background:#8a8a8a;font-family:'PingFang TC',sans-serif}
 #bar button:hover{background:#555}
 #bar button.active{background:#36c;border-color:#58f}
 /* 常用的版面動作（本頁／全部）用琥珀色，跟一般按鈕的深灰拉開距離 */
-#bar button.act{background:#b45309;border-color:#f59e0b;color:#fff;font-weight:600}
+#bar button.act{background:var(--act);border-color:var(--act-bd);color:#fff;font-weight:600}
 #bar button.act:hover{background:#d97706}
-/* 輸出動作：綠色 */
-#bar #bprint{background:#047857;border-color:#34d399;color:#fff;font-weight:600}
-#bar #bprint:hover{background:#059669}
+/* 輸出動作（列印／匯出）：綠色 */
+#bar button.out{background:var(--out);border-color:var(--out-bd);color:#fff;font-weight:600}
+#bar button.out:hover{background:#059669}
+/* 危險動作（刪除／重設／換檔）：紅框線，hover 才填紅底 */
+#bar button.danger{background:transparent;border-color:var(--danger-bd);color:#fca5a5;font-weight:600}
+#bar button.danger:hover{background:var(--danger);color:#fff}
 /* 編輯內容：切換型，打開時整塊變紫，一眼看得出正在編輯狀態 */
 #bar label.hot{background:#3b1d63;border:1px solid #7c3aed;border-radius:4px;padding:2px 7px;font-weight:600}
 #bar label.hot:has(input:checked){background:#7c3aed;border-color:#c4b5fd;color:#fff}
 .grp{display:inline-flex;gap:5px;align-items:center;padding:2px 7px;background:#2d2d2d;border-radius:5px;border:1px solid #444}
 .grp select{background:#444;color:#eee;border:1px solid #666;border-radius:4px;padding:2px 4px;font-size:12px}
-.grp-title{font-size:11px;color:#38bdf8;font-weight:700;margin-right:2px;letter-spacing:.5px}
+.grp-title{font-size:12px;color:#7dd3fc;font-weight:700;margin-right:2px;letter-spacing:.5px}
 /* 可收合的群組：標題當開關，收起來只留標題，工具列才不會爆滿 */
 .grp.fold>.grp-title{cursor:pointer;user-select:none}
-.grp.fold>.grp-title:hover{color:#7dd3fc}
+.grp.fold>.grp-title:hover{color:#a5e3ff}
 .grp.fold>.grp-title::before{content:'▾ '}
 .grp.fold.closed>.grp-title::before{content:'▸ '}
 /* 要帶 #bar：上面的 #bar label{display:flex} 有 id，優先權比純 class 高，不然 label 收不起來 */
 #bar .grp.fold.closed>*:not(.grp-title){display:none}
 .abtn{padding:2px 6px!important;min-width:22px;font-size:12px;font-weight:600}
-#hint{opacity:.6;font-size:12px}
+#outGrp{margin-left:auto}
+#bhint{background:transparent;border:1px dashed #666;border-radius:50%;width:22px;height:22px;line-height:1;padding:0;color:#aaa;font-weight:700}
+#bhint:hover{color:#fff;border-color:#999}
+/* 未設對齊的黃底提示可整批關掉（檢視群組的開關） */
+body.hide-nofmt .nofmt{background:none!important}
+/* ---- 驗算結果面板 ---- */
+.panel-ov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;display:flex;align-items:center;justify-content:center;padding:24px}
+.panel-box{background:#1f1f1f;color:#eee;border:1px solid #444;border-radius:8px;max-width:840px;width:100%;max-height:86vh;display:flex;flex-direction:column}
+.panel-title{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #333;font-weight:600;font-size:14px}
+.panel-x{background:transparent;border:none;color:#aaa;font-size:16px;cursor:pointer}
+.panel-x:hover{color:#fff}
+.panel-body{padding:14px;overflow:auto;font-size:13px;line-height:1.8;font-family:ui-monospace,Menlo,'PingFang TC',monospace}
+.panel-body .bad{color:#ff8a8a}
+.panel-body .good{color:#6ee7a0}
+.panel-body .muted{color:#9ca3af;margin-top:10px}
+.panel-foot{display:flex;justify-content:flex-end;gap:8px;padding:10px 14px;border-top:1px solid #333}
+.panel-foot button{padding:4px 12px;background:#444;color:#eee;border:1px solid #666;border-radius:4px;cursor:pointer}
+.panel-foot button:hover{background:#555}
+/* ---- 右上角可關閉的提示 ---- */
+.notice{position:fixed;top:58px;right:14px;z-index:40;background:#3b1d63;border:1px solid #7c3aed;color:#eee;padding:10px 14px;border-radius:6px;max-width:400px;font-size:13px;line-height:1.7;box-shadow:0 4px 16px rgba(0,0,0,.4)}
+.notice-x{background:none;border:none;color:#c4b5fd;margin-left:10px;cursor:pointer;font-size:14px}
+.notice-x:hover{color:#fff}
 
 #doc{padding:20px;transform-origin:top left;transform:scale(var(--zoom));width:max-content}
 #doc.fit-center{margin:0 auto;transform-origin:top center}
@@ -88,6 +115,8 @@ tr.drag-target-before>td{box-shadow:inset 0 3px 0 #2563eb!important}
 tr.drag-target-after>td{box-shadow:inset 0 -3px 0 #2563eb!important}
 body.row-dragging, body.row-dragging *{cursor:grabbing!important;user-select:none!important}
 .over{box-shadow:inset 0 -2px 0 #e00}
+/* 原檔沒設對齊的格：靠左／靠右是程式猜的，底色提醒人工確認（列印與 PDF 也要看得到） */
+.nofmt{background:#fff2b0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .pno{position:absolute;bottom:5mm;left:0;right:0;text-align:center;font-size:9pt;color:#333}
 .badge{position:absolute;top:3px;right:5px;font-size:11px;color:#060;background:#eee;padding:1px 5px;border-radius:3px}
 .badge.bad{color:#fff;background:#d00}
@@ -127,6 +156,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
 
 <div id="bar" class="hide">
   <b id="fname"></b>
+  <button id="bfold" class="abtn" title="全部群組一次收合／展開">收合全部</button>
 
   <span class="grp">
     <span class="grp-title">結構</span>
@@ -135,8 +165,8 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <label title="表頭（每頁重複的標題＋欄位名稱）到第幾列為止，下一列開始算資料列。&#10;檔案有設「列印標題」時自動帶入；舊版 .xls 轉檔後通常沒有，要手動填。&#10;填 0 = 沒有表頭。">表頭到<input type="number" id="hdrLast" min="0" step="1">列</label>
   </span>
 
-  <span class="grp">
-    <span class="grp-title">文字</span>
+  <span class="grp fold" data-key="text">
+    <span class="grp-title" title="點一下展開／收合">文字</span>
     <label title="全域字型設定，切換後自動重新計算列高">字型
       <select id="fontFam">
         <option value="">原檔字型</option>
@@ -161,8 +191,8 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <label title="CSS 行距，影響同一格內多行文字之間的距離">行距<input type="range" id="lh" min="0.9" max="2" step="0.05"><span id="lhv"></span></label>
   </span>
 
-  <span class="grp">
-    <span class="grp-title">版面</span>
+  <span class="grp fold closed" data-key="layout">
+    <span class="grp-title" title="點一下展開／收合">版面</span>
     <label title="Excel 的列印縮放比例，影響文字和框線的實際大小">縮放<input type="range" id="k" min="0.5" max="1.2" step="0.005"><span id="kv"></span></label>
     <label title="每一列額外墊高，等於拉開它跟下一列之間的距離；全部頁面一起套用">列間距<input type="range" id="gap" min="0" max="24" step="0.5"><span id="gapv"></span></label>
     <label title="表頭天線到地線之間的總高（mm）。這個值決定每頁能塞多少資料列：&#10;• 資料列不夠填滿時，地線會靠一列空白列撐到這個位置&#10;• 資料列太多時會自動分頁&#10;• 預設值 = 紙張高 − 上下邊界 − 標題區高度&#10;• 所有頁面共用同一個值，地線才會對齊">天地線高<input type="number" id="sh" step="0.5">mm</label>
@@ -179,10 +209,10 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <label title="目前選取列的高度（pt），可直接輸入數字修改"><input type="number" id="rh" step="0.5" disabled>pt</label>
     <button id="bfit" title="把目前選取的那一列壓到文字實際需要的最小高度">最小列高</button>
     <button id="bbrk" title="在目前選取列之前插入手動分頁（快捷鍵 B），再按一次取消">此列前分頁 (B)</button>
-    <button id="bdel" title="從版面刪掉目前選取的資料列。&#10;復原鍵救不回來，會先問一次。&#10;匯出 xlsx 時原檔那一列會被設成隱藏，不是真的刪除。">刪除本列</button>
+    <button id="bdel" class="danger" title="從版面刪掉目前選取的資料列。&#10;復原鍵救不回來，會先問一次。&#10;匯出 xlsx 時原檔那一列會被設成隱藏，不是真的刪除。">刪除本列</button>
   </span>
 
-  <span class="grp fold closed">
+  <span class="grp fold closed" data-key="rowBorder">
     <span class="grp-title" title="點一下展開／收合">本列框線</span>
     <button id="brb_t" class="abtn" title="選取列只畫上框線">上線</button>
     <button id="brb_b" class="abtn" title="選取列只畫下框線">下線</button>
@@ -190,13 +220,13 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <button id="brb_n" class="abtn" title="選取列不畫上下框線">無線</button>
   </span>
 
-  <span class="grp fold closed" id="footGrp">
+  <span class="grp fold closed" id="footGrp" data-key="foot">
     <span class="grp-title" title="點一下展開／收合">合計/備註</span>
     <select id="footSel" title="選擇末頁的合計列或備註列"></select>
     <label title="該列的高度（pt）。改了會即時重排，末頁容量也會跟著算"><input type="number" id="footH" step="0.5" min="4">pt</label>
   </span>
 
-  <span class="grp fold closed" id="colGrp">
+  <span class="grp fold closed" id="colGrp" data-key="colAlign">
     <span class="grp-title" title="點一下展開／收合">整欄對齊/框線</span>
     <select id="colAlignSelect" title="選擇要設定對齊與框線的欄位"></select>
     <button id="bcol_l" class="abtn" title="該欄靠左對齊">左</button>
@@ -212,44 +242,48 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
 
   <span class="grp">
     <span class="grp-title">本頁</span>
-    <button id="bfitpage" class="act" title="只把這一頁的每一列壓到文字實際需要的高度">最小列高</button>
-    <button id="beven" class="act" title="套用「單行列高」與「多行加高」兩個設定，再把剩下的空白平均分給所有列。&#10;單行列＝單行列高；多行列＝內容高＋多行加高；空白間隔列不動。&#10;末頁不攤平（資料少，攤了會把每列撐得很高）。&#10;&#10;改過那兩個數字後要按這裡才會生效。">平均列高</button>
+    <button id="bfitpage" class="act" title="只把這一頁的每一列壓到文字實際需要的高度">本頁最小列高</button>
+    <button id="beven" class="act" title="套用「單行列高」與「多行加高」兩個設定，再把剩下的空白平均分給所有列。&#10;單行列＝單行列高；多行列＝內容高＋多行加高；空白間隔列不動。&#10;末頁不攤平（資料少，攤了會把每列撐得很高）。&#10;&#10;改過那兩個數字後要按這裡才會生效。">本頁平均列高</button>
   </span>
 
-  <span class="grp">
-    <span class="grp-title">全部</span>
-    <button id="bfitall" class="act" title="把所有頁面的每一列都壓到文字實際需要的最小高度">最小列高</button>
-    <button id="bevenall" class="act" title="每一頁都套用「單行列高」與「多行加高」，再把剩餘空白平均分給所有列。&#10;末頁只做前半段，不把空白攤到列高上。&#10;&#10;改過那兩個數字後要按這裡才會生效。">平均列高</button>
+  <span class="grp fold" data-key="all">
+    <span class="grp-title" title="點一下展開／收合">全部</span>
+    <button id="bfitall" class="act" title="把所有頁面的每一列都壓到文字實際需要的最小高度">全部最小列高</button>
+    <button id="bevenall" class="act" title="每一頁都套用「單行列高」與「多行加高」，再把剩餘空白平均分給所有列。&#10;末頁只做前半段，不把空白攤到列高上。&#10;&#10;改過那兩個數字後要按這裡才會生效。">全部平均列高</button>
     <button id="bhtml" title="忽略 Excel 原始列高與分頁，全部依內容重新排版（要回原樣按「重設」）">HTML 重排</button>
     <button id="bauto" class="act" title="清掉所有手動分頁點，改成完全照列高自動流動分頁">清除分頁</button>
     <button id="bfreeze" class="act" title="把目前每一頁的起點通通寫成手動分頁點，並關掉自動分頁。&#10;之後改列高、改字級都不會讓頁面重新流動，版面就定住了。">凍結分頁</button>
     <label title="打勾後分頁會依列高自動計算，列高改變時頁面會重新流動"><input type="checkbox" id="push">自動分頁</label>
   </span>
 
-  <span class="grp">
-    <span class="grp-title">檢視</span>
+  <span class="grp fold" data-key="view">
+    <span class="grp-title" title="點一下展開／收合">檢視</span>
     <label title="畫面檢視縮放，不影響列印，只影響螢幕上看到的大小"><input type="range" id="zm" min="0.3" max="1.5" step="0.05"></label>
     <button id="bview" title="切換顯示模式：滿高（一頁剛好塞滿視窗高度）/ 滿寬（對開塞滿視窗寬度）/ 自訂（手動拉檢視滑桿）">滿高</button>
     <label title="在每頁底部置中顯示頁碼（左頁奇數、右頁偶數）。預設不顯示。"><input type="checkbox" id="pno">頁碼</label>
     <label class="hot" title="打開後可直接點資料格改字。改完不會動到你調好的列高，只有字多到裝不下時才會往上撐。&#10;原檔用來對齊的白色補位字會顯示成灰色，方便刪掉。"><input type="checkbox" id="edit">編輯內容</label>
-    <button id="bundo" title="復原上一步（⌘Z / Ctrl+Z）。註：拖曳換列的順序不在復原範圍內" disabled>復原</button>
-    <button id="bredo" title="重做（⇧⌘Z / Ctrl+Shift+Z）" disabled>重做</button>
+    <label title="原檔沒設對齊（Excel 的「通用」）的格會標黃底提醒人工確認。取消勾選可整批隱藏黃底。"><input type="checkbox" id="shownofmt">黃底提示</label>
+    <button id="bundo" title="復原上一步（⌘Z / Ctrl+Z）。註：拖曳換列的順序不在復原範圍內" disabled>復原 (⌘Z)</button>
+    <button id="bredo" title="重做（⇧⌘Z / Ctrl+Shift+Z）" disabled>重做 (⇧⌘Z)</button>
   </span>
 
-  <span class="grp">
-    <span class="grp-title">檔案</span>
-    <button id="bprint" title="開啟瀏覽器的列印對話框。&#10;目的地務必選「另存為 PDF」，選成 Right PDF／Adobe PDF 等印表機會讓整頁變圖片、PDF 裡沒有文字。">列印 / 存 PDF</button>
+  <span class="grp fold closed" data-key="file">
+    <span class="grp-title" title="點一下展開／收合">檔案</span>
     <label title="分散對齊的格子原本是一個字一個元素（字距最準），存成 PDF 後在編輯器裡一字一塊、幾乎不能編。&#10;打勾改用 CSS 兩端對齊，整格是一段連續文字、PDF 編得動，字距由瀏覽器決定、可能跟 Excel 略有差異。"><input type="checkbox" id="pdftext">PDF 文字可編輯</label>
     <button id="bcheck" title="用目前畫面上的數字重新核對：&#10;【階層】總計 = Σ主管 → 主管 = Σ基金（公司）→ 基金 = Σ大分類 → 大分類 = Σ各計畫&#10;【交叉】比照原檔 sumif：各「◯◯主管」加總、計畫別合計（一般建築及設備＋繼續＋新興）都要等於總計&#10;百分比欄自動排除。">驗算</button>
     <button id="bcheck2" title="讀原檔裡「差異數」那幾列（通常放在列印範圍外的 sumif 檢誤區），檢查是不是全部為 0。&#10;那是 Excel 存檔時算好的值，本工具不重算公式。">原檔檢誤</button>
-    <button id="bxlsx" title="把調好的列高與分頁寫回 xlsx，其餘內容原封不動，可回 Excel 再微調">匯出 xlsx</button>
     <button id="bsave" title="把目前的列高、分頁、縮放等設定匯出成 JSON 檔，下次可匯入還原">匯出設定</button>
     <button id="bload" title="匯入之前匯出的 JSON 設定檔，還原列高、分頁等設定">匯入設定</button>
-    <button id="breset" title="回到 Excel 原始的列高與分頁，放棄所有調整">重設</button>
-    <button id="bnew" title="關閉目前的檔案，回到拖曳載入畫面換一個檔案">換檔案</button>
+    <button id="breset" class="danger" title="回到 Excel 原始的列高與分頁，放棄所有調整">重設</button>
+    <button id="bnew" class="danger" title="關閉目前的檔案，回到拖曳載入畫面換一個檔案">換檔案</button>
   </span>
 
-  <span id="hint">單列調高：拖該列下緣，或點選後用 ↑↓ (Shift×5)／直接填列高｜拖曳資料列可換順序（亦可 Alt+↑/↓）｜雙擊＝最小列高｜左右頁同一列永遠同高</span>
+  <span class="grp" id="outGrp">
+    <button id="bprint" class="out" title="開啟瀏覽器的列印對話框。&#10;目的地務必選「另存為 PDF」，選成 Right PDF／Adobe PDF 等印表機會讓整頁變圖片、PDF 裡沒有文字。">列印 / 存 PDF</button>
+    <button id="bxlsx" class="out" title="把調好的列高與分頁寫回 xlsx，其餘內容原封不動，可回 Excel 再微調">匯出 xlsx</button>
+  </span>
+
+  <button id="bhint" title="單列調高：拖該列下緣，或點選後用 ↑↓（Shift×5）／直接填列高。&#10;拖曳資料列可換順序（亦可 Alt+↑/↓）。&#10;雙擊＝最小列高。&#10;左右頁同一列永遠同高。&#10;分頁：點左側標尺的累積值，或在選取列按 B。">?</button>
 </div>
 
 <div id="doc"></div>
@@ -576,7 +610,7 @@ function buildModel(x){
 
 
   // CSS class 收斂
-  const cssMap = new Map(), css = [];
+  const cssMap = new Map(), css = [], noFmt = new Set();   // noFmt：原檔沒設對齊的儲存格
   // 合併儲存格的框線在 Excel 裡分散在四個角落的格子上：左／上在錨點格，
   // 右邊線在同一列最右邊那格，下邊線在同一欄最下面那格。
   // 只讀錨點格的話，像 G4:K4「資金來源」這種橫向合併就會少掉右邊線。
@@ -587,10 +621,12 @@ function buildModel(x){
             bottom: bdOf(colName(c) + (r + rs - 1)).bottom};
   }
 
-  function cls(ref, nohz, nobd, bIn){
+  function cls(ref, nohz, nobd, bIn, num){
     const xf = xfOf(ref), f = x.fonts[xf.fontId] || {}, b0 = bIn || bdOf(ref);
+    // 沒設對齊就是 Excel 的「通用」：數字靠右、文字靠左
+    const h = xf.h || (num ? 'right' : 'left');
     const b = nobd ? {} : b0;    // 標題區不畫框線：天線是第一列表頭的上框線畫的，重複畫會變粗
-    const sig = [f.name, f.sz, !!f.b, f.color, xf.h, xf.v, xf.wrap, xf.indent,
+    const sig = [f.name, f.sz, !!f.b, f.color, h, xf.v, xf.wrap, xf.indent,
                  b.left, b.right, nohz ? null : b.top, nohz ? null : b.bottom].join('|');
     if (cssMap.has(sig)) return cssMap.get(sig);
     const nm = 'c' + cssMap.size;
@@ -599,7 +635,7 @@ function buildModel(x){
                `font-size:calc(${f.sz || 11}pt * var(--fs) * var(--k))`];
     if (f.b) d.push('font-weight:700');
     if (f.color) d.push(`color:${f.color}`);
-    d.push(`text-align:${xf.h === 'distributed' ? 'center' : (xf.h || 'left')}`);
+    d.push(`text-align:${h === 'distributed' ? 'center' : h}`);
     if (xf.indent) d.push(`padding-left:calc(${xf.indent * .5}em + 2px)`);
     d.push('white-space:' + (xf.wrap ? 'pre-wrap' : 'pre'));
     css.push(`.${nm}{${d.join(';')}}`);
@@ -632,7 +668,7 @@ function buildModel(x){
     const ref = colName(c) + r, cv = x.cells[ref];
     const xf = xfOf(ref);
     const cellFont = x.fonts[xf.fontId] || {};   // 儲存格層級的字型／字級／粗細，run 只在不同時才覆寫
-    let t = '';
+    let t = '', num = false;
     if (cv && cv.v != null){
       if (cv.t === 's'){
         // 白字是「換行後的縮排」，補上換行，換行點才不會隨字型跑掉
@@ -646,16 +682,18 @@ function buildModel(x){
         t = out;
       } else if (cv.t === 'str' || cv.t === 'e'){ t = esc(cv.v); }
       else if (cv.t === 'b'){ t = cv.v === '1' ? 'TRUE' : 'FALSE'; }
-      else { t = esc(fmtNum(+cv.v, x.numFmt[xf.numFmtId])); }
+      else { t = esc(fmtNum(+cv.v, x.numFmt[xf.numFmtId])); num = true; }
     } else if (cv && cv.is){
       t = cv.is.map(run => runSpan(run, cellFont)).join('');
     }
     if (xf.h === 'distributed' && t) t = distribute(t);
     const m = x.merges[r + ',' + c] || [1,1];
-    const o = {t, c: cls(ref, nohz, nobd, mergedBorder(r, c, m[0], m[1])), col: c};
+    const o = {t, c: cls(ref, nohz, nobd, mergedBorder(r, c, m[0], m[1]), num), col: c};
+    // 原檔沒設對齊（Excel 的「通用」），靠左／靠右是這裡猜的，標底色請人確認
+    if (!xf.h && t){ o.c += ' nofmt'; o.nf = true; noFmt.add(ref); }
     // Excel 裡不換行的靠左文字會溢到右邊的空格子上（「二、一般建築及設備計畫」放在 C 欄、
     // D E 空著就是這種）。標記候選，實際會不會溢由 pack() 看隔壁有沒有東西決定。
-    if (!xf.wrap && (!xf.h || xf.h === 'left') && !/\n/.test(t)) o.nw = true;
+    if (!xf.wrap && !num && (!xf.h || xf.h === 'left') && !/\n/.test(t)) o.nw = true;
     if (xf.indent) o.ind = xf.indent;   // 階層驗算要用：標籤的縮排層級
     if (VAL[xf.v]) o.v = VAL[xf.v];
     if (m[0] > 1) o.rs = m[0];
@@ -760,7 +798,7 @@ function buildModel(x){
     rows: pack(bodyRows, true), foot: pack(footRows),
     rowNums: bodyRows,        // 匯出 xlsx 時要把列高寫回原本的列號
     footNums: footRows,       // 合計＋備註的原始列號，編輯內容寫回時要用
-    breaks, css, topBorderPt, splitCol: split, c1, c2, r1, r2, hdrLast: hdrEnd,
+    breaks, css, topBorderPt, noFmt: [...noFmt], splitCol: split, c1, c2, r1, r2, hdrLast: hdrEnd,
     area: colName(c1) + r1 + ':' + colName(c2) + r2
   };
 }
@@ -768,6 +806,51 @@ function buildModel(x){
 /* ============================ 載入流程 ============================ */
 const $ = id => document.getElementById(id);
 const el = (t,c) => { const e = document.createElement(t); if (c) e.className = c; return e; };
+
+/* ---- 共用 UI：可複製的結果面板 + 右上角可關閉的提示 ---- */
+function showPanel(title, body, opts = {}){
+  const ov = el('div'); ov.className = 'panel-ov';
+  const box = el('div'); box.className = 'panel-box';
+  const hd = el('div'); hd.className = 'panel-title';
+  const hb = el('b'); hb.textContent = title;
+  const x = el('button'); x.className = 'panel-x'; x.textContent = '✕';
+  x.onclick = () => ov.remove();
+  hd.append(hb, x);
+  const bd = el('div'); bd.className = 'panel-body';
+  if (opts.html) bd.innerHTML = body; else bd.textContent = body;
+  const ft = el('div'); ft.className = 'panel-foot';
+  const cp = el('button'); cp.textContent = '複製全文';
+  cp.onclick = () => {
+    const txt = bd.innerText;
+    const done = () => { cp.textContent = '已複製'; setTimeout(() => cp.textContent = '複製全文', 1200); };
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(done, done);
+    } else {   // file:// 或舊瀏覽器沒有非同步剪貼簿 API 時，退回去用選取複製
+      const ta = document.createElement('textarea');
+      ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); } catch(e){}
+      ta.remove(); done();
+    }
+  };
+  const ok = el('button'); ok.textContent = '關閉'; ok.onclick = () => ov.remove();
+  ft.append(cp, ok);
+  box.append(hd, bd, ft);
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+  ov.addEventListener('mousedown', e => { if (e.target === ov) ov.remove(); });
+  const esc = e => { if (e.key === 'Escape'){ ov.remove(); document.removeEventListener('keydown', esc); } };
+  document.addEventListener('keydown', esc);
+  return ov;
+}
+function showNotice(html, auto){
+  const n = el('div'); n.className = 'notice';
+  n.innerHTML = html + ' <button class="notice-x">✕</button>';
+  n.querySelector('.notice-x').onclick = () => n.remove();
+  document.body.appendChild(n);
+  if (auto) setTimeout(() => n.remove(), auto);
+  return n;
+}
 
 const zone = $('zone');
 zone.onclick = () => $('file').click();
@@ -829,41 +912,43 @@ function start(model, keepSettings){
     if (S.h.length !== D.rows.length){ S.h = dflt.h.slice(); S.breaks = dflt.breaks.slice(); }
   }
   sel = -1;
-  var firstTime = !keepSettings && !Object.keys(store.get()).length;
+  let firstTime = !keepSettings && !Object.keys(store.get()).length;
 
   $('dyn').textContent = D.css.join('\n')
     + `\n@media print{@page{size:${D.page.w}mm ${D.page.h}mm;margin:0}`
     + `.page{height:calc(${D.page.h}mm - 0.2mm)!important}}`;
   $('fname').textContent = D.name + ' / ' + D.sheet;
+  document.title = D.name + ' – 對開表排版';
   $('drop').classList.add('hide');
   $('bar').classList.remove('hide');
   undoStack = []; redoStack = []; lastSnap = null;   // 換檔／換分欄，復原歷史重來
   populateSplitSelect();
   bind(); render();
+  if (D.noFmt.length) showNotice(`⚠ 有 ${D.noFmt.length} 格原檔沒設對齊（Excel 的「通用」），靠左／靠右是依內容猜的（數字靠右、文字靠左）。<br>這些格子已標黃底（列印、PDF 與匯出的 Excel 都看得到），請確認後在原檔補上對齊；不想看到黃底可在「檢視」群組取消勾選。`);
   if (firstTime) htmlLayout();
 }
 
 function populateSplitSelect(){
-  const sel = $('split');
-  sel.innerHTML = '';
+  const selEl = $('split');
+  selEl.innerHTML = '';
   for (let c = D.c1; c < D.c2; c++){
     const o = el('option');
     o.value = c; o.textContent = colName(c) + ' | ' + colName(c+1);
     if (c === D.splitCol) o.selected = true;
-    sel.appendChild(o);
+    selEl.appendChild(o);
   }
 }
 function populateFootSelect(){
-  const sel = $('footSel');
-  sel.innerHTML = '';
+  const selEl = $('footSel');
+  selEl.innerHTML = '';
   D.foot.forEach((r, k) => {
     const o = el('option');
     o.value = k; o.textContent = k === 0 ? '合計' : '備註' + (D.foot.length > 2 ? k : '');
-    sel.appendChild(o);
+    selEl.appendChild(o);
   });
-  sel.disabled = !D.foot.length;
+  selEl.disabled = !D.foot.length;
   $('footH').disabled = !D.foot.length;
-  if (D.foot.length) $('footH').value = footHt(+sel.value);
+  if (D.foot.length) $('footH').value = footHt(+selEl.value);
   else $('footH').value = '';
 }
 function populateColAlignSelect(){
@@ -1062,6 +1147,43 @@ async function exportXlsx(){
       });
     });
 
+    // 沒設對齊的格在匯出檔也填黃底：複製它原本的 xf、多掛一個 fill，回 Excel 一眼看得出要補哪幾格。
+    // 若檔案之前已被本工具加過黃底（重複匯出），就沿用舊 fill、不再複製，避免 styles.xml 一直膨脹。
+    let stylesPath = D.noFmt.length ? Object.keys(SRC.z.files).find(n => /styles\.xml$/.test(n)) : null;
+    let stylesTxt = null;
+    if (stylesPath){
+      stylesTxt = await entry(SRC.z, stylesPath);
+      const xfBlock = /<cellXfs count="\d+">([\s\S]*?)<\/cellXfs>/.exec(stylesTxt);
+      const fillsBlock = /<fills count="\d+">([\s\S]*?)<\/fills>/.exec(stylesTxt);
+      if (xfBlock && fillsBlock){
+        const xfs = xfBlock[1].match(/<xf\b[^>]*\/>|<xf\b[\s\S]*?<\/xf>/g) || [];
+        const fills = fillsBlock[1].match(/<fill\b[\s\S]*?<\/fill>/g) || [];
+        // 已存在黃底（FFFFF2B0）的 fill 就沿用，重複匯出才不會一直堆
+        const yellowIds = new Set(fills.map((f, idx) => /FFFFF2B0/i.test(f) ? idx : -1).filter(i => i >= 0));
+        const fillIdOf = xf => { const m = /fillId="(\d+)"/.exec(xf || ''); return m ? +m[1] : -1; };
+        const nfSet = new Set(D.noFmt), clones = new Map();   // 原 s → 加了黃底的新 s
+        txt = txt.replace(/<c r="([A-Z]+\d+)"([^>]*?)(\/?)>/g, (m, ref, attrs, sc) => {
+          if (!nfSet.has(ref)) return m;
+          const s0 = +((/\ss="(\d+)"/.exec(attrs) || [])[1] || 0);
+          if (yellowIds.has(fillIdOf(xfs[s0]))) return m;   // 這格已經黃底，不用再複製
+          if (!clones.has(s0)) clones.set(s0, xfs.length + clones.size);
+          return `<c r="${ref}"${attrs.replace(/\ss="\d+"/, '')} s="${clones.get(s0)}"${sc}>`;
+        });
+        if (clones.size){
+          const newFillId = fills.length;   // 新 fill 追加到最尾，index = 現有數量
+          const add = [...clones.keys()].map(s0 => (xfs[s0] || '<xf/>')
+            .replace(/^(<xf\b[^>]*?)\s*(\/?)>/, (m, head, sc) =>
+              head.replace(/\s(fillId|applyFill)="[^"]*"/g, '') + ` fillId="${newFillId}" applyFill="1"${sc}>`));
+          stylesTxt = stylesTxt
+            .replace(/<fills count="\d+">/, `<fills count="${fills.length + 1}">`)
+            .replace('</fills>', '<fill><patternFill patternType="solid">'
+              + '<fgColor rgb="FFFFF2B0"/><bgColor indexed="64"/></patternFill></fill></fills>')
+            .replace(/<cellXfs count="(\d+)">/, (m, n) => `<cellXfs count="${+n + clones.size}">`)
+            .replace('</cellXfs>', add.join('') + '</cellXfs>');
+        }
+      }
+    }
+
     // 分頁：brk 的 id 是「這一列之後分頁」，所以寫每頁的最後一列
     const ids = pages().slice(0, -1).map(idx => D.rowNums[idx[idx.length-1]]);
     const xmlBrk = `<rowBreaks count="${ids.length}" manualBreakCount="${ids.length}">`
@@ -1072,7 +1194,9 @@ async function exportXlsx(){
 
     const enc = new TextEncoder(), out = [];
     for (const name of Object.keys(SRC.z.files))
-      out.push({name, bytes: name === SRC.path ? enc.encode(txt) : await entryBytes(SRC.z, name)});
+      out.push({name, bytes: name === SRC.path ? enc.encode(txt)
+                          : name === stylesPath && stylesTxt ? enc.encode(stylesTxt)
+                          : await entryBytes(SRC.z, name)});
     const a = el('a');
     a.href = URL.createObjectURL(await zipWrite(out));
     a.download = SRC.name.replace(/(\.[^.]+)$/, '') + '-已排版.xlsx';
@@ -1339,7 +1463,6 @@ function makePage(idx, side, no, last, first){
         td.style.borderBottom = linePx();
         // 合計列的列高是原檔給的，常常比字高很多。字若靠上，就會離地線（自己的下框線）很遠，
         // 所以這一列改成靠下對齊，字貼著地線走。
-        const w = td.firstChild;
         w.classList.remove('vc');
         w.classList.add('vb');
       }
@@ -1417,12 +1540,12 @@ function fitFoot(){
 
 function render(){
   snapshot(); updateUndoBtns(); updateBtnStates();
-  const doc = $('doc'); doc.innerHTML = '';
+  const docEl = $('doc'); docEl.innerHTML = '';
   const pg = pages();
   pg.forEach((idx,n) => {
     const sp = el('div','spread'), last = n === pg.length - 1;
     const L = makePage(idx,'l',n*2+1,last,n===0), R = makePage(idx,'r',n*2+2,last,n===0);
-    sp.append(L,R); doc.appendChild(sp);
+    sp.append(L,R); docEl.appendChild(sp);
     const target = (last ? endH() : S.sh) * MM;
     // offsetHeight 是整數像素，會讓各頁地線差個 0.2mm；用 rect 的浮點高度（要除掉檢視縮放）
     const th = p => p._tb.getBoundingClientRect().height / S.zoom;
@@ -1867,17 +1990,50 @@ $('bfreeze').onclick = () => {
 };
 $('push').onchange = e => { S.push = e.target.checked; render(); };
 // --- 直接改資料 ---
-// 收合群組：標題當開關。狀態只留在畫面上，不進設定檔
+// 收合群組：標題當開關，狀態存進 localStorage（跨檔案／重開都記得）
+const FOLD_KEY = 'spread:fold';
+function updateFoldBtn(){
+  const closed = document.querySelectorAll('#bar .grp.fold.closed').length;
+  const total = document.querySelectorAll('#bar .grp.fold').length;
+  $('bfold').textContent = (total && closed >= total) ? '展開全部' : '收合全部';
+}
+function saveFold(){
+  const closed = [...document.querySelectorAll('#bar .grp.fold.closed')]
+    .map(g => g.dataset.key || '').filter(Boolean);
+  try { localStorage.setItem(FOLD_KEY, JSON.stringify(closed)); } catch(e){}
+  updateFoldBtn();
+}
+function restoreFold(){
+  let c = null;
+  try { c = JSON.parse(localStorage.getItem(FOLD_KEY) || 'null'); } catch(e){ c = null; }
+  if (Array.isArray(c)){   // 沒存過就保留 HTML 預設（版面等預設收合）
+    document.querySelectorAll('#bar .grp.fold').forEach(g =>
+      g.classList.toggle('closed', c.includes(g.dataset.key)));
+  }
+  updateFoldBtn();
+}
 $('bar').addEventListener('click', e => {
   const t = e.target.closest('.grp.fold > .grp-title');
-  if (t) t.parentNode.classList.toggle('closed');
+  if (t){ t.parentNode.classList.toggle('closed'); saveFold(); }
 });
+$('bfold').onclick = () => {
+  const groups = [...document.querySelectorAll('#bar .grp.fold')];
+  const allClosed = groups.length && groups.every(g => g.classList.contains('closed'));
+  groups.forEach(g => g.classList.toggle('closed', !allClosed));
+  saveFold();
+};
+restoreFold();
 
 $('pno').onchange = e => { S.showPno = e.target.checked; render(); store.set(S); };
 $('edit').onchange = e => {
   S.editing = e.target.checked;
   document.body.classList.toggle('editing', S.editing);
   render();
+};
+$('shownofmt').onchange = e => {
+  S.showNoFmt = e.target.checked;
+  document.body.classList.toggle('hide-nofmt', !S.showNoFmt);
+  store.set(S);
 };
 // 改完（離開該格）才存檔重排，才不會邊打字邊跳掉游標
 // 編輯 key 有兩種：資料列是 "3|l|0"，合計／備註列是 "f0|l|0"。
@@ -2070,11 +2226,15 @@ function audit(){
     if (!bad) out.push(`✓ ${nm} = 總計（${rs.length} 列、${cols.length} 個金額欄全部相符）`);
   });
 
-  alert((fail ? `⚠ ${fail} 項不符（共檢查 ${done} 項）\n\n` : `✅ 全部通過（共檢查 ${done} 項）\n\n`)
-    + out.join('\n')
-    + `\n\n比對欄位：${cols.map(colName).join('、')}`
-    + (pct.size ? `\n已排除百分比欄：${[...pct].sort((a,b)=>a-b).map(colName).join('、')}` : '')
-    );
+  const title = fail ? `⚠ ${fail} 項不符（共檢查 ${done} 項）` : `✅ 全部通過（共檢查 ${done} 項）`;
+  const html = out.map(s => {
+    const cls = s.startsWith('✗') ? 'bad' : s.startsWith('✓') ? 'good' : '';
+    return `<div class="${cls}">${esc(s)}</div>`;
+  }).join('')
+    + `<div class="muted">比對欄位：${cols.map(colName).join('、')}`
+    + (pct.size ? `<br>已排除百分比欄：${[...pct].sort((a,b)=>a-b).map(colName).join('、')}` : '')
+    + `</div>`;
+  showPanel(title, html, {html:true});
 }
 
 // 驗算：原檔常在列印範圍外放一區 sumif 檢誤，用「…差異…」當標籤、值應為 0。
@@ -2106,8 +2266,12 @@ $('bcheck2').onclick = () => {
   });
 
   if (!checked){ alert('原檔裡找不到標籤含「差異」的驗算列。\n（這類檢誤區通常放在列印範圍下方）'); return; }
-  alert((bad ? `⚠ ${bad} / ${checked} 項不符\n\n` : `✅ ${checked} 項全部通過\n\n`) + lines.join('\n')
-        + '\n\n註：顯示的是 Excel 存檔時算好的值，本工具不重算公式。');
+  const title = bad ? `⚠ ${bad} / ${checked} 項不符` : `✅ ${checked} 項全部通過`;
+  const html = lines.map(s => {
+    const cls = s.startsWith('✗') ? 'bad' : s.startsWith('✓') ? 'good' : '';
+    return `<div class="${cls}">${esc(s)}</div>`;
+  }).join('') + `<div class="muted">註：顯示的是 Excel 存檔時算好的值，本工具不重算公式。</div>`;
+  showPanel(title, html, {html:true});
 };
 
 $('bxlsx').onclick = exportXlsx;
@@ -2179,6 +2343,8 @@ function bind(){
   $('push').checked = S.push;
   $('edit').checked = !!S.editing;
   $('pno').checked = !!S.showPno;
+  $('shownofmt').checked = S.showNoFmt !== false;
+  document.body.classList.toggle('hide-nofmt', S.showNoFmt === false);
   document.body.classList.toggle('editing', !!S.editing);
   $('linkend').checked = S.linkEnd;
   $('shend').disabled = S.linkEnd;
