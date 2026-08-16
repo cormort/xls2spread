@@ -64,8 +64,9 @@ body{margin:0;background:#8a8a8a;font-family:'PingFang TC',sans-serif}
 #outGrp{margin-left:auto}
 #bhint{background:transparent;border:1px dashed #666;border-radius:50%;width:22px;height:22px;line-height:1;padding:0;color:#aaa;font-weight:700}
 #bhint:hover{color:#fff;border-color:#999}
-/* 未設對齊的黃底提示可整批關掉（檢視群組的開關） */
+/* 未設對齊的紅底提示可整批關掉（檢視群組的開關） */
 body.hide-nofmt .nofmt{background:none!important}
+body.hide-empty td.emptycell{background:none!important}
 /* ---- 驗算結果面板 ---- */
 .panel-ov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;display:flex;align-items:center;justify-content:center;padding:24px}
 .panel-box{background:#1f1f1f;color:#eee;border:1px solid #444;border-radius:8px;max-width:840px;width:100%;max-height:86vh;display:flex;flex-direction:column}
@@ -121,7 +122,9 @@ tr.drag-target-after>td{box-shadow:inset 0 -3px 0 #2563eb!important}
 body.row-dragging, body.row-dragging *{cursor:grabbing!important;user-select:none!important}
 .over{box-shadow:inset 0 -2px 0 #e00}
 /* 原檔沒設對齊的格：靠左／靠右是程式猜的，底色提醒人工確認（列印與 PDF 也要看得到） */
-.nofmt{background:#fff2b0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.nofmt{background:#ffb0b0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+/* 表格內沒填值的格：淺橘底提醒（跟紅底的「未設對齊」分開），只在畫面／列印上看得到，不寫回檔案 */
+td.emptycell{background:#ffd9a8;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .pno{position:absolute;bottom:5mm;left:0;right:0;text-align:center;font-size:9pt;color:#333}
 .badge{position:absolute;top:3px;right:5px;font-size:11px;color:#060;background:#eee;padding:1px 5px;border-radius:3px}
 .badge.bad{color:#fff;background:#d00}
@@ -276,7 +279,8 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <button id="bview" title="切換顯示模式：滿高（一頁剛好塞滿視窗高度）/ 滿寬（對開塞滿視窗寬度）/ 自訂（手動拉檢視滑桿）">滿高</button>
     <label title="在每頁底部置中顯示頁碼（左頁奇數、右頁偶數）。預設不顯示。"><input type="checkbox" id="pno">頁碼</label>
     <label class="hot" title="打開後可直接點資料格改字。改完不會動到你調好的列高，只有字多到裝不下時才會往上撐。&#10;原檔用來對齊的白色補位字會顯示成灰色，方便刪掉。"><input type="checkbox" id="edit">編輯內容</label>
-    <label title="原檔沒設對齊（Excel 的「通用」）的格會標黃底提醒人工確認。取消勾選可整批隱藏黃底。"><input type="checkbox" id="shownofmt">黃底提示</label>
+    <label title="原檔沒設對齊（Excel 的「通用」）的格會標紅底提醒人工確認。取消勾選可整批隱藏紅底。"><input type="checkbox" id="shownofmt">紅底提示</label>
+    <label title="表格框線內卻沒有值的格會標淺橘底提醒（列印與 PDF 也看得到，但不會寫進匯出的 xlsx）。取消勾選可整批隱藏橘底。"><input type="checkbox" id="showempty">橘底提示</label>
     <button id="bundo" title="復原上一步（⌘Z / Ctrl+Z）。註：拖曳換列的順序不在復原範圍內" disabled>復原 (⌘Z)</button>
     <button id="bredo" title="重做（⇧⌘Z / Ctrl+Shift+Z）" disabled>重做 (⇧⌘Z)</button>
   </span>
@@ -620,6 +624,7 @@ function buildModel(x){
 
   // CSS class 收斂
   const cssMap = new Map(), css = [], noFmt = new Set();   // noFmt：原檔沒設對齊的儲存格
+  const empties = new Set();   // 表格框線內卻沒填值的儲存格
   // 合併儲存格的框線在 Excel 裡分散在四個角落的格子上：左／上在錨點格，
   // 右邊線在同一列最右邊那格，下邊線在同一欄最下面那格。
   // 只讀錨點格的話，像 G4:K4「資金來源」這種橫向合併就會少掉右邊線。
@@ -672,7 +677,7 @@ function buildModel(x){
     return d.length ? `<span style="${d.join(';')}">${esc(run.t)}</span>` : esc(run.t);
   }
 
-  function cell(r, c, nohz, nobd){
+  function cell(r, c, nohz, nobd, chk){
     if (x.skip.has(r + ',' + c)) return null;
     const ref = colName(c) + r, cv = x.cells[ref];
     const xf = xfOf(ref);
@@ -697,7 +702,11 @@ function buildModel(x){
     }
     if (xf.h === 'distributed' && t) t = distribute(t);
     const m = x.merges[r + ',' + c] || [1,1];
-    const o = {t, c: cls(ref, nohz, nobd, mergedBorder(r, c, m[0], m[1]), num), col: c};
+    const mb = mergedBorder(r, c, m[0], m[1]);
+    const o = {t, c: cls(ref, nohz, nobd, mb, num), col: c};
+    // 資料列裡「有框線圍起來、卻沒填值」的格：多半是漏填，標淺橘底請人確認。
+    // 只認框線內的格，否則表格外圍那一片空白會全部被標起來。
+    if (chk && !t && (mb.left || mb.right)){ o.c += ' emptycell'; o.emp = ref; }
     // 原檔沒設對齊（Excel 的「通用」），靠左／靠右是這裡猜的，標底色請人確認
     if (!xf.h && t){ o.c += ' nofmt'; o.nf = true; noFmt.add(ref); }
     // Excel 裡不換行的靠左文字會溢到右邊的空格子上（「二、一般建築及設備計畫」放在 C 欄、
@@ -721,13 +730,17 @@ function buildModel(x){
     });
     return arr;
   };
-  const pack = (rows, nohz, nobd) => rows.map(r => {
-    const l = markSpill(halves.l.map(c => cell(r, c, nohz, nobd)).filter(Boolean));
-    const rr = markSpill(halves.r.map(c => cell(r, c, nohz, nobd)).filter(Boolean));
+  const pack = (rows, nohz, nobd, chk) => rows.map(r => {
+    const l = markSpill(halves.l.map(c => cell(r, c, nohz, nobd, chk)).filter(Boolean));
+    const rr = markSpill(halves.r.map(c => cell(r, c, nohz, nobd, chk)).filter(Boolean));
+    const all = l.concat(rr), blank = !all.some(c => plain(c.t));
+    // 整列空白（原檔拿來當間隔的空列）不算漏填，橘底收回去
+    all.forEach(c => { if (!c.emp) return;
+      if (blank) c.c = c.c.replace(' emptycell', ''); else empties.add(c.emp); });
     return {
       h: rowh(r), l, r: rr,
       ind: xfOf(colName(halves.l[0]) + r).indent || 0,   // 縮排層級，用來認出群組標題
-      blank: !l.concat(rr).some(c => plain(c.t))         // 整列空白
+      blank                                              // 整列空白
     };
   });
 
@@ -804,10 +817,10 @@ function buildModel(x){
            mt: +(x.margins.t * 25.4).toFixed(2), mb: +(x.margins.b * 25.4).toFixed(2)},
     cols: {l: widths('l'), r: widths('r')},
     title: pack(titleRows, true, true), head: pack(headRows),
-    rows: pack(bodyRows, true), foot: pack(footRows),
+    rows: pack(bodyRows, true, false, true), foot: pack(footRows, false, false, true),
     rowNums: bodyRows,        // 匯出 xlsx 時要把列高寫回原本的列號
     footNums: footRows,       // 合計＋備註的原始列號，編輯內容寫回時要用
-    breaks, css, topBorderPt, noFmt: [...noFmt], splitCol: split, c1, c2, r1, r2, hdrLast: hdrEnd,
+    breaks, css, topBorderPt, noFmt: [...noFmt], empties: [...empties], splitCol: split, c1, c2, r1, r2, hdrLast: hdrEnd,
     area: colName(c1) + r1 + ':' + colName(c2) + r2
   };
 }
@@ -933,7 +946,10 @@ function start(model, keepSettings){
   undoStack = []; redoStack = []; lastSnap = null;   // 換檔／換分欄，復原歷史重來
   populateSplitSelect();
   bind(); render();
-  if (D.noFmt.length) showNotice(`⚠ 有 ${D.noFmt.length} 格原檔沒設對齊（Excel 的「通用」），靠左／靠右是依內容猜的（數字靠右、文字靠左）。<br>這些格子已標黃底（列印、PDF 與匯出的 Excel 都看得到），請確認後在原檔補上對齊；不想看到黃底可在「檢視」群組取消勾選。`);
+  const notes = [];
+  if (D.noFmt.length) notes.push(`⚠ 有 ${D.noFmt.length} 格原檔沒設對齊（Excel 的「通用」），靠左／靠右是依內容猜的（數字靠右、文字靠左）。<br>這些格子已標紅底（列印、PDF 與匯出的 Excel 都看得到），請確認後在原檔補上對齊；不想看到紅底可在「檢視」群組取消勾選。`);
+  if (D.empties.length) notes.push(`⚠ 有 ${D.empties.length} 格在表格框線內卻沒有值（${D.empties.slice(0,8).join('、')}${D.empties.length > 8 ? '…' : ''}），已標淺橘底。<br>橘底只顯示，不會寫進匯出的 xlsx；不想看到可在「檢視」群組取消勾選。`);
+  if (notes.length) showNotice(notes.join('<hr style="border:none;border-top:1px solid #7c3aed;margin:8px 0">'));
   if (firstTime) htmlLayout();
 }
 
@@ -1156,8 +1172,8 @@ async function exportXlsx(){
       });
     });
 
-    // 沒設對齊的格在匯出檔也填黃底：複製它原本的 xf、多掛一個 fill，回 Excel 一眼看得出要補哪幾格。
-    // 若檔案之前已被本工具加過黃底（重複匯出），就沿用舊 fill、不再複製，避免 styles.xml 一直膨脹。
+    // 沒設對齊的格在匯出檔也填紅底：複製它原本的 xf、多掛一個 fill，回 Excel 一眼看得出要補哪幾格。
+    // 若檔案之前已被本工具加過紅底（重複匯出），就沿用舊 fill、不再複製，避免 styles.xml 一直膨脹。
     let stylesPath = D.noFmt.length ? Object.keys(SRC.z.files).find(n => /styles\.xml$/.test(n)) : null;
     let stylesTxt = null;
     if (stylesPath){
@@ -1167,14 +1183,14 @@ async function exportXlsx(){
       if (xfBlock && fillsBlock){
         const xfs = xfBlock[1].match(/<xf\b[^>]*\/>|<xf\b[\s\S]*?<\/xf>/g) || [];
         const fills = fillsBlock[1].match(/<fill\b[\s\S]*?<\/fill>/g) || [];
-        // 已存在黃底（FFFFF2B0）的 fill 就沿用，重複匯出才不會一直堆
-        const yellowIds = new Set(fills.map((f, idx) => /FFFFF2B0/i.test(f) ? idx : -1).filter(i => i >= 0));
+        // 已存在提示底色的 fill 就沿用，重複匯出才不會一直堆（FFF2B0 是舊版的黃底）
+        const yellowIds = new Set(fills.map((f, idx) => /FF(FFF2B0|FFB0B0)/i.test(f) ? idx : -1).filter(i => i >= 0));
         const fillIdOf = xf => { const m = /fillId="(\d+)"/.exec(xf || ''); return m ? +m[1] : -1; };
-        const nfSet = new Set(D.noFmt), clones = new Map();   // 原 s → 加了黃底的新 s
+        const nfSet = new Set(D.noFmt), clones = new Map();   // 原 s → 加了紅底的新 s
         txt = txt.replace(/<c r="([A-Z]+\d+)"([^>]*?)(\/?)>/g, (m, ref, attrs, sc) => {
           if (!nfSet.has(ref)) return m;
           const s0 = +((/\ss="(\d+)"/.exec(attrs) || [])[1] || 0);
-          if (yellowIds.has(fillIdOf(xfs[s0]))) return m;   // 這格已經黃底，不用再複製
+          if (yellowIds.has(fillIdOf(xfs[s0]))) return m;   // 這格已經有底色，不用再複製
           if (!clones.has(s0)) clones.set(s0, xfs.length + clones.size);
           return `<c r="${ref}"${attrs.replace(/\ss="\d+"/, '')} s="${clones.get(s0)}"${sc}>`;
         });
@@ -1186,7 +1202,7 @@ async function exportXlsx(){
           stylesTxt = stylesTxt
             .replace(/<fills count="\d+">/, `<fills count="${fills.length + 1}">`)
             .replace('</fills>', '<fill><patternFill patternType="solid">'
-              + '<fgColor rgb="FFFFF2B0"/><bgColor indexed="64"/></patternFill></fill></fills>')
+              + '<fgColor rgb="FFFFB0B0"/><bgColor indexed="64"/></patternFill></fill></fills>')
             .replace(/<cellXfs count="(\d+)">/, (m, n) => `<cellXfs count="${+n + clones.size}">`)
             .replace('</cellXfs>', add.join('') + '</cellXfs>');
         }
@@ -1251,6 +1267,13 @@ function colBorder(td, col){
   td.style.borderRight = cb === 'right' || cb === 'both' ? linePx() : 'none';
 }
 
+// 編輯過的格：填了字就把橘底拿掉（原本的空格判定是載入時算的）
+function withEdit(c, edited){
+  if (edited == null) return c;
+  const o = Object.assign({}, c, {t: esc(edited)});
+  if (String(edited).trim()) o.c = o.c.replace(' emptycell', '');
+  return o;
+}
 function cellEl(tag, c, h, i, side, ci){
   const td = el(tag, c.c);            // 框線在 td（border-collapse 合併），字的樣式在內層 div
   if (c.cs) td.colSpan = c.cs;
@@ -1421,7 +1444,7 @@ function makePage(idx, side, no, last, first){
     D.rows[i][side].forEach((c, ci) => {
       const key = i + '|' + side + '|' + ci;
       const edited = S.edits[key];
-      const td = cellEl('td', edited != null ? Object.assign({}, c, {t: esc(edited)}) : c, rh(i), i, side, ci);
+      const td = cellEl('td', withEdit(c, edited), rh(i), i, side, ci);
       const w = td.firstChild;
       w.dataset.key = key;
       // 每頁第一列跟表頭下邊線之間留一點空隙，字才不會貼著線。
@@ -1435,7 +1458,7 @@ function makePage(idx, side, no, last, first){
 
   const fill = el('tr');
   ((D.rows[idx[0]] || D.rows[0])[side]).forEach(c => {
-    const t = el('td', c.c);
+    const t = el('td', c.c.replace(' emptycell', ''));
     // 合併儲存格要帶著 colSpan，不然填空列涵蓋的欄數會比表格少，
     // 地線就會從某一欄開始斷掉（第一筆資料列有 A:E 這種橫向合併時特別明顯）。
     if (c.cs) t.colSpan = c.cs;
@@ -1458,7 +1481,7 @@ function makePage(idx, side, no, last, first){
     r[side].forEach((c, ci) => {
       const key = `f${k}|${side}|${ci}`;
       const edited = S.edits[key];
-      const td = cellEl('td', edited != null ? Object.assign({}, c, {t: esc(edited)}) : c, footHt(k), null, side, null);
+      const td = cellEl('td', withEdit(c, edited), footHt(k), null, side, null);
       const w = td.firstChild;
       w.dataset.key = key;
       // 合計／備註列：原檔的列高只當「最低高度」，格子自己隨內容長。
@@ -2034,6 +2057,11 @@ $('shownofmt').onchange = e => {
   document.body.classList.toggle('hide-nofmt', !S.showNoFmt);
   store.set(S);
 };
+$('showempty').onchange = e => {
+  S.showEmpty = e.target.checked;
+  document.body.classList.toggle('hide-empty', !S.showEmpty);
+  store.set(S);
+};
 // 改完（離開該格）才存檔重排，才不會邊打字邊跳掉游標
 // 編輯 key 有兩種：資料列是 "3|l|0"，合計／備註列是 "f0|l|0"。
 // 這支把 key 解回「是哪一格、對應原檔第幾列」，commitEdit 與匯出都用它。
@@ -2323,6 +2351,9 @@ $('bload').onclick = () => {
 // 選到 Right PDF／Adobe PDF 這類虛擬印表機會整頁點陣化、PDF 裡一個文字字元都沒有。
 // 只能在開對話框前把該選什麼講清楚。
 $('bprint').onclick = () => {
+  // 空格是載入時算的，這裡看現在畫面上還剩幾格沒填（編輯補上的會消失）
+  const left = document.querySelectorAll('td.emptycell').length;
+  if (left && !confirm(`還有 ${left} 格在表格框線內沒有值（畫面上標淺橘底）。\n\n橘底會跟著印出來。要繼續列印嗎？`)) return;
   const ok = confirm(
     '列印視窗開啟後，「目的地 / Destination」請選：\n\n' +
     '        ✅  另存為 PDF（Save as PDF）\n\n' +
@@ -2344,6 +2375,8 @@ function bind(){
   $('pno').checked = !!S.showPno;
   $('shownofmt').checked = S.showNoFmt !== false;
   document.body.classList.toggle('hide-nofmt', S.showNoFmt === false);
+  $('showempty').checked = S.showEmpty !== false;
+  document.body.classList.toggle('hide-empty', S.showEmpty === false);
   document.body.classList.toggle('editing', !!S.editing);
   $('linkend').checked = S.linkEnd;
   $('shend').disabled = S.linkEnd;
