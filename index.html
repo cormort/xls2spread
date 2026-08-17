@@ -123,7 +123,7 @@ body.row-dragging, body.row-dragging *{cursor:grabbing!important;user-select:non
 .over{box-shadow:inset 0 -2px 0 #e00}
 /* 原檔沒設對齊的格：靠左／靠右是程式猜的，底色提醒人工確認（列印與 PDF 也要看得到） */
 .nofmt{background:#ffb0b0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-/* 表格內沒填值的格：淺橘底提醒（跟紅底的「未設對齊」分開），只在畫面／列印上看得到，不寫回檔案 */
+/* 表格內沒填值的格：淺橘底提醒（跟紅底的「未設對齊」分開），只在畫面上看得到，不印出來也不寫回檔案 */
 td.emptycell{background:#ffd9a8;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .pno{position:absolute;bottom:5mm;left:0;right:0;text-align:center;font-size:9pt;color:#333}
 .badge{position:absolute;top:3px;right:5px;font-size:11px;color:#060;background:#eee;padding:1px 5px;border-radius:3px}
@@ -133,6 +133,7 @@ td.emptycell{background:#ffd9a8;-webkit-print-color-adjust:exact;print-color-adj
 tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
 @media print{
   body{background:#fff}
+  td.emptycell{background:none!important}   /* 橘底只是螢幕上的提醒，不印出來 */
   #bar,#drop,.badge,.mark{display:none}
   #doc{padding:0;transform:none;width:auto}
   .spread{display:block;margin:0;padding-left:0}
@@ -280,7 +281,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <label title="在每頁底部置中顯示頁碼（左頁奇數、右頁偶數）。預設不顯示。"><input type="checkbox" id="pno">頁碼</label>
     <label class="hot" title="打開後可直接點資料格改字。改完不會動到你調好的列高，只有字多到裝不下時才會往上撐。&#10;原檔用來對齊的白色補位字會顯示成灰色，方便刪掉。"><input type="checkbox" id="edit">編輯內容</label>
     <label title="原檔沒設對齊（Excel 的「通用」）的格會標紅底提醒人工確認。取消勾選可整批隱藏紅底。"><input type="checkbox" id="shownofmt">紅底提示</label>
-    <label title="表格框線內卻沒有值的格會標淺橘底提醒（列印與 PDF 也看得到，但不會寫進匯出的 xlsx）。取消勾選可整批隱藏橘底。"><input type="checkbox" id="showempty">橘底提示</label>
+    <label title="表格框線內卻沒有值的格會標淺橘底提醒（只在畫面上，列印、PDF 與匯出的 xlsx 都不會有）。取消勾選可整批隱藏橘底。"><input type="checkbox" id="showempty">橘底提示</label>
     <button id="bundo" title="復原上一步（⌘Z / Ctrl+Z）。註：拖曳換列的順序不在復原範圍內" disabled>復原 (⌘Z)</button>
     <button id="bredo" title="重做（⇧⌘Z / Ctrl+Shift+Z）" disabled>重做 (⇧⌘Z)</button>
   </span>
@@ -958,7 +959,7 @@ function start(model, keepSettings){
   bind(); render();
   const notes = [];
   if (D.noFmt.length) notes.push(`⚠ 有 ${D.noFmt.length} 格原檔沒設對齊（Excel 的「通用」），靠左／靠右是依內容猜的（數字靠右、文字靠左）。<br>這些格子已標紅底（列印、PDF 與匯出的 Excel 都看得到），請確認後在原檔補上對齊；不想看到紅底可在「檢視」群組取消勾選。`);
-  if (D.empties.length) notes.push(`⚠ 有 ${D.empties.length} 格在表格框線內卻沒有值（${D.empties.slice(0,8).join('、')}${D.empties.length > 8 ? '…' : ''}），已標淺橘底。<br>橘底只顯示，不會寫進匯出的 xlsx；不想看到可在「檢視」群組取消勾選。`);
+  if (D.empties.length) notes.push(`⚠ 有 ${D.empties.length} 格在表格框線內卻沒有值（${D.empties.slice(0,8).join('、')}${D.empties.length > 8 ? '…' : ''}），已標淺橘底。<br>橘底只在畫面上顯示，列印、PDF 與匯出的 xlsx 都不會有；不想看到可在「檢視」群組取消勾選。`);
   if (notes.length) showNotice(notes.join('<hr style="border:none;border-top:1px solid #7c3aed;margin:8px 0">'));
   if (firstTime) htmlLayout();
 }
@@ -1070,6 +1071,7 @@ $('footH').oninput = e => {
   const k = +$('footSel').value, v = Math.max(4, +e.target.value || 0);
   if (!S.footH) S.footH = D.foot.map(r => r.h);
   S.footH[k] = v;
+  (S.footFixed || (S.footFixed = {}))[k] = 1;   // 手動指定過就不再讓 fitFoot 自動縮
   render(); store.set(S);
 };
 $('hgap').oninput = e => { S.headGap = +e.target.value || 0; render(); store.set(S); };
@@ -1562,26 +1564,26 @@ function updateUndoBtns(){
 }
 
 let footFitting = false;
-// 量合計／備註列真正需要的高度，比目前設定高就撐開
+// 量合計／備註列真正需要的高度：合計列與手動填過 pt 的只長不縮，其餘備註列跟著內容走
 function fitFoot(){
   if (!D.foot.length) return false;
   let changed = false;
   D.foot.forEach((_, k) => {
     let px = 0;
     document.querySelectorAll(`tr[data-f="${k}"] .cw`).forEach(w => {
+      // min-height 是目前的列高，不拿掉就只量得到「現在多高」，量不出內容其實變短了
+      const mh = w.style.minHeight; w.style.minHeight = '0';
       px = Math.max(px, w.getBoundingClientRect().height / S.zoom);
+      w.style.minHeight = mh;
     });
     const need = Math.max(4, Math.ceil(px / PT / S.k * 10) / 10);
-    if (need > footHt(k) + 0.05){
+    // 合計／備註列的高度跟著內容走：長就撐開，刪掉字就縮回來。
+    // 原檔的列高只是起點（常常是留了空行的 2 行高），不當地板；手動填過 pt 的才釘住。
+    // k === 0 是合計列：字靠下貼著地線，高度是版面的一部分，不自動縮
+    const fixed = k === 0 || (S.footFixed && S.footFixed[k]);
+    if (fixed ? need > footHt(k) + 0.05 : Math.abs(need - footHt(k)) > 0.05){
       if (!S.footH) S.footH = D.foot.map(r => r.h);
-      // 記住撐高前的高度：之後把字刪掉就能退回來，但不會低於這個手動／原檔的值
-      if (!S.footBase) S.footBase = {};
-      if (S.footBase[k] == null) S.footBase[k] = footHt(k);
       S.footH[k] = need;
-      changed = true;
-    } else if (S.footBase && S.footBase[k] != null && need < footHt(k) - 0.05){
-      S.footH[k] = Math.max(need, S.footBase[k]);
-      if (S.footH[k] <= S.footBase[k] + 0.05) delete S.footBase[k];
       changed = true;
     }
   });
@@ -2381,7 +2383,7 @@ $('bload').onclick = () => {
 $('bprint').onclick = () => {
   // 空格是載入時算的，這裡看現在畫面上還剩幾格沒填（編輯補上的會消失）
   const left = document.querySelectorAll('td.emptycell').length;
-  if (left && !confirm(`還有 ${left} 格在表格框線內沒有值（畫面上標淺橘底）。\n\n橘底會跟著印出來。要繼續列印嗎？`)) return;
+  if (left && !confirm(`還有 ${left} 格在表格框線內沒有值（畫面上標淺橘底）。\n\n橘底不會印出來。要繼續列印嗎？`)) return;
   const ok = confirm(
     '列印視窗開啟後，「目的地 / Destination」請選：\n\n' +
     '        ✅  另存為 PDF（Save as PDF）\n\n' +
