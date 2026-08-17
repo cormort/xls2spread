@@ -1574,7 +1574,14 @@ function fitFoot(){
     const need = Math.max(4, Math.ceil(px / PT / S.k * 10) / 10);
     if (need > footHt(k) + 0.05){
       if (!S.footH) S.footH = D.foot.map(r => r.h);
+      // 記住撐高前的高度：之後把字刪掉就能退回來，但不會低於這個手動／原檔的值
+      if (!S.footBase) S.footBase = {};
+      if (S.footBase[k] == null) S.footBase[k] = footHt(k);
       S.footH[k] = need;
+      changed = true;
+    } else if (S.footBase && S.footBase[k] != null && need < footHt(k) - 0.05){
+      S.footH[k] = Math.max(need, S.footBase[k]);
+      if (S.footH[k] <= S.footBase[k] + 0.05) delete S.footBase[k];
       changed = true;
     }
   });
@@ -1733,6 +1740,7 @@ function moveRow(from, to, pos){
 
   const [h] = S.h.splice(from, 1);
   S.h.splice(target, 0, h);
+  S.grew = {};   // ponytail: 換列後對不回去，直接放掉；代價只是這些列不能自動縮回
 
   if (dflt && dflt.h){
     const [dh] = dflt.h.splice(from, 1);
@@ -1809,6 +1817,7 @@ function deleteRow(i){
     return out;
   };
   S.rowBorders = shift(S.rowBorders);
+  S.grew = shift(S.grew);
 
   const newEdits = {};
   Object.entries(S.edits).forEach(([k, v]) => {
@@ -2053,8 +2062,8 @@ function openTab(key){
   $('panels').classList.toggle('open', !!key);
   try { localStorage.setItem(FOLD_KEY, key); } catch(e){}
 }
-let saved = '';
-try { saved = localStorage.getItem(FOLD_KEY) || ''; } catch(e){}
+let saved = 'view';   // 沒記錄過就先開「檢視」，紅底／橘底這些開關最常用
+try { const v = localStorage.getItem(FOLD_KEY); if (v != null) saved = v; } catch(e){}
 openTab($('tabs').querySelector(`[data-key="${saved}"]`) ? saved : '');
 
 $('pno').onchange = e => { S.showPno = e.target.checked; render(); store.set(S); };
@@ -2101,7 +2110,15 @@ function commitEdit(w){
     if (!ref.foot){
       const keep = S.h[ref.i];
       fit(ref.i);
-      S.h[ref.i] = Math.max(keep, S.h[ref.i]);
+      if (!S.grew) S.grew = {};
+      if (S.h[ref.i] > keep){
+        // 撐高了：記住撐高前的高度，之後刪字才知道可以退到哪裡
+        if (S.grew[ref.i] == null) S.grew[ref.i] = keep;
+      } else {
+        // 內容變短：只有先前被字撐高過的列可以縮，且不低於當初手動調好的高度
+        S.h[ref.i] = Math.max(S.h[ref.i], S.grew[ref.i] != null ? S.grew[ref.i] : keep);
+        if (S.grew[ref.i] != null && S.h[ref.i] <= S.grew[ref.i] + 0.05) delete S.grew[ref.i];
+      }
     }
     render();
   }
