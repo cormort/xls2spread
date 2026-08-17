@@ -62,12 +62,13 @@ body{margin:0;background:#8a8a8a;font-family:'PingFang TC',sans-serif}
 .grp-title{font-size:12px;color:#7dd3fc;font-weight:700;margin-right:2px;letter-spacing:.5px}
 .abtn{padding:2px 6px!important;min-width:22px;font-size:12px;font-weight:600}
 #outGrp{margin-left:auto}
-#bhint{background:transparent;border:1px dashed #666;border-radius:50%;width:22px;height:22px;line-height:1;padding:0;color:#aaa;font-weight:700}
+#bhint{background:transparent;border:1px dashed #666;border-radius:11px;height:22px;line-height:1;padding:0 9px;color:#aaa;font-weight:700}
 #bhint:hover{color:#fff;border-color:#999}
 /* 未設對齊的紅底提示可整批關掉（檢視群組的開關） */
 body.hide-nofmt .nofmt{background:none!important}
 body.hide-empty td.emptycell{background:none!important}
 body.hide-mixalign td.mixalign{background:none!important}
+body.hide-badfont td.badfont{background:none!important}
 /* ---- 驗算結果面板 ---- */
 .panel-ov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;display:flex;align-items:center;justify-content:center;padding:24px}
 .panel-box{background:#1f1f1f;color:#eee;border:1px solid #444;border-radius:8px;max-width:840px;width:100%;max-height:86vh;display:flex;flex-direction:column}
@@ -128,6 +129,8 @@ body.row-dragging, body.row-dragging *{cursor:grabbing!important;user-select:non
 td.emptycell{background:#ffd9a8;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 /* 同一欄裡對齊方式跟多數不一樣的格：淺紫底提醒，只在畫面上看得到 */
 td.mixalign{background:#d9c8ff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+/* 一格內混排的字型跟全份慣例對不上的格：淺綠底提醒，只在畫面上看得到 */
+td.badfont{background:#b7e4c7;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .pno{position:absolute;bottom:5mm;left:0;right:0;text-align:center;font-size:9pt;color:#333}
 .badge{position:absolute;top:3px;right:5px;font-size:11px;color:#060;background:#eee;padding:1px 5px;border-radius:3px}
 .badge.bad{color:#fff;background:#d00}
@@ -136,7 +139,7 @@ td.mixalign{background:#d9c8ff;-webkit-print-color-adjust:exact;print-color-adju
 tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
 @media print{
   body{background:#fff}
-  td.emptycell,td.mixalign{background:none!important}   /* 橘底／紫底只是螢幕上的提醒，不印出來 */
+  td.emptycell,td.mixalign,td.badfont{background:none!important}   /* 橘底／紫底／綠底只是螢幕上的提醒，不印出來 */
   #bar,#drop,.badge,.mark{display:none}
   #doc{padding:0;transform:none;width:auto}
   .spread{display:block;margin:0;padding-left:0}
@@ -206,7 +209,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <button id="bxlsx" class="out" title="把調好的列高與分頁寫回 xlsx，其餘內容原封不動，可回 Excel 再微調">匯出 xlsx</button>
   </span>
 
-  <button id="bhint" title="單列調高：拖該列下緣，或點選後用 ↑↓（Shift×5）／直接填列高。&#10;拖曳資料列可換順序（亦可 Alt+↑/↓）。&#10;雙擊＝最小列高。&#10;左右頁同一列永遠同高。&#10;分頁：點左側標尺的累積值，或在選取列按 B。">?</button>
+  <button id="bhint" title="單列調高：拖該列下緣，或點選後用 ↑↓（Shift×5）／直接填列高。&#10;拖曳資料列可換順序（亦可 Alt+↑/↓）。&#10;雙擊＝最小列高。&#10;左右頁同一列永遠同高。&#10;分頁：點左側標尺的累積值，或在選取列按 B。">操作說明</button>
   </div>
   <div id="tabs"></div>
   <div id="panels">
@@ -286,6 +289,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <label title="原檔沒設對齊（Excel 的「通用」）的格會標紅底提醒人工確認。取消勾選可整批隱藏紅底。"><input type="checkbox" id="shownofmt">紅底提示</label>
     <label title="表格框線內卻沒有值的格會標淺橘底提醒（只在畫面上，列印、PDF 與匯出的 xlsx 都不會有）。取消勾選可整批隱藏橘底。"><input type="checkbox" id="showempty">橘底提示</label>
     <label title="同一欄裡對齊方式跟多數不一樣的格會標淺紫底（只在畫面上，列印、PDF 與匯出的 xlsx 都不會有）。取消勾選可整批隱藏紫底。"><input type="checkbox" id="showmix">紫底提示</label>
+    <label title="一格內混了兩種以上字型、其中有一種跟全份慣例對不上的格會標淺綠底（只在畫面上，列印、PDF 與匯出的 xlsx 都不會有）。取消勾選可整批隱藏綠底。"><input type="checkbox" id="showbadfont">綠底提示</label>
     <button id="bundo" title="復原上一步（⌘Z / Ctrl+Z）。註：拖曳換列的順序不在復原範圍內" disabled>復原 (⌘Z)</button>
     <button id="bredo" title="重做（⇧⌘Z / Ctrl+Shift+Z）" disabled>重做 (⇧⌘Z)</button>
   </span>
@@ -630,6 +634,9 @@ function buildModel(x){
   // CSS class 收斂
   const cssMap = new Map(), css = [], noFmt = new Set();   // noFmt：原檔沒設對齊的儲存格
   const empties = new Set();   // 表格框線內卻沒填值的儲存格
+  const CJK = /[㐀-鿿豈-﫿]/, CJKG = /[㐀-鿿豈-﫿]+/g;
+  const fontUse = {中文: {}, 英數: {}};   // 全份用了哪些字型，用來認出慣例
+  const mixedFontCells = [];              // 一格內混了兩種以上字型的格
   // 合併儲存格的框線在 Excel 裡分散在四個角落的格子上：左／上在錨點格，
   // 右邊線在同一列最右邊那格，下邊線在同一欄最下面那格。
   // 只讀錨點格的話，像 G4:K4「資金來源」這種橫向合併就會少掉右邊線。
@@ -687,7 +694,7 @@ function buildModel(x){
     const ref = colName(c) + r, cv = x.cells[ref];
     const xf = xfOf(ref);
     const cellFont = x.fonts[xf.fontId] || {};   // 儲存格層級的字型／字級／粗細，run 只在不同時才覆寫
-    let t = '', num = false;
+    let t = '', num = false, cellRuns = null;
     if (cv && cv.v != null){
       if (cv.t === 's'){
         // 白字是「換行後的縮排」，補上換行，換行點才不會隨字型跑掉
@@ -700,12 +707,13 @@ function buildModel(x){
           out += runSpan(run, cellFont);
           plain += run.t;
         });
-        t = out;
+        t = out; cellRuns = runs;
       } else if (cv.t === 'str' || cv.t === 'e'){ t = esc(cv.v); }
       else if (cv.t === 'b'){ t = cv.v === '1' ? 'TRUE' : 'FALSE'; }
       else { t = esc(fmtNum(+cv.v, x.numFmt[xf.numFmtId])); num = true; }
     } else if (cv && cv.is){
       t = cv.is.map(run => runSpan(run, cellFont)).join('');
+      cellRuns = cv.is;
     }
     // 尾端空行：Excel 看不到，帶進來會多撐一行高度（原檔的換行是 \r\n，先正規化）
     t = t.replace(/\r\n?/g, '\n').replace(/(?:\n[^\S\n]*)+$/, '');
@@ -724,6 +732,20 @@ function buildModel(x){
     // Excel 裡不換行的靠左文字會溢到右邊的空格子上（「二、一般建築及設備計畫」放在 C 欄、
     // D E 空著就是這種）。標記候選，實際會不會溢由 pack() 看隔壁有沒有東西決定。
     if (!xf.wrap && !num && (!xf.h || xf.h === 'left') && !/\n/.test(t)) o.nw = true;
+    // 一格混排多種字型時，記下「哪段文字用哪個字型」，稍後跟全份的慣例比對
+    // （常見慣例：中文一種字型、英數一種；混到第三種多半是貼上來沒清乾淨）
+    if (chk && cellRuns){
+      const pairs = [];
+      cellRuns.forEach(run => {
+        const fn = run.f || cellFont.name, s = run.t || '';
+        if (!fn) return;
+        const pick = re => { const m = s.match(re) || []; const t2 = m.join(''); return t2.length > 8 ? t2.slice(0,8) + '…' : t2; };
+        if (CJK.test(s)) pairs.push(['中文', fn, pick(CJKG)]);
+        if (/[A-Za-z0-9]/.test(s)) pairs.push(['英數', fn, pick(/[A-Za-z0-9.%()-]+/g)]);
+      });
+      pairs.forEach(([k, fn]) => { fontUse[k][fn] = (fontUse[k][fn] || 0) + 1; });
+      if (new Set(pairs.map(p => p[1])).size > 1){ o.fp = pairs; o.ref = ref; mixedFontCells.push(o); }
+    }
     // 對齊一致性檢查用：實際生效的水平對齊（沒設就是 Excel 的「通用」＝數字靠右、文字靠左）
     if (chk && /\S/.test(t.replace(/<[^>]*>/g, '').replace(/[　 ]/g, ' '))){
       o.al = xf.h || (num ? 'right' : 'left'); o.ref = ref;
@@ -829,7 +851,8 @@ function buildModel(x){
 
   // 同一欄裡的對齊方式不一致：多數決，跟多數不同的那幾格標淺紫底（整欄填色太粗，指到格子才找得到）
   // 只看資料列、有字、非跨欄合併的格；合併格本來就常另設對齊，一起算會全欄誤報。
-  const bodyPacked = pack(bodyRows, true, false, true), mixAlign = [];
+  const bodyPacked = pack(bodyRows, true, false, true),
+        footPacked = pack(footRows, false, false, true), mixAlign = [];
   {
     const byCol = new Map();
     bodyPacked.forEach(r => r.l.concat(r.r).forEach(c => {
@@ -843,7 +866,22 @@ function buildModel(x){
       const kinds = Object.keys(cnt);
       if (kinds.length < 2) return;
       const top = kinds.sort((a,b) => cnt[b] - cnt[a])[0];
-      list.forEach(c => { if (c.al !== top){ c.c += ' mixalign'; mixAlign.push(c.ref); } });
+      list.forEach(c => { if (c.al !== top){ c.c += ' mixalign'; c.mixTop = top; mixAlign.push(c.ref); } });
+    });
+  }
+
+  // 一格混排多種字型時，中文段、英數段各自跟全份最常用的那個字型比；
+  // 對不上的就是那個「跑進來的字型」，標淺綠底並在 tooltip 指名。
+  const badFont = [];
+  {
+    const top = k2 => Object.keys(fontUse[k2]).sort((a,b) => fontUse[k2][b] - fontUse[k2][a])[0];
+    const dom = {中文: top('中文'), 英數: top('英數')};
+    mixedFontCells.forEach(c => {
+      const bad = c.fp.filter(([k2, fn]) => dom[k2] && fn !== dom[k2]);
+      if (!bad.length) return;
+      c.c += ' badfont';
+      c.badTip = bad.map(([k2, fn, s]) => `${k2}「${s}」用了「${fn}」（全份多為「${dom[k2]}」）`).join('；');
+      badFont.push(c.ref);
     });
   }
 
@@ -853,10 +891,10 @@ function buildModel(x){
            mt: +(x.margins.t * 25.4).toFixed(2), mb: +(x.margins.b * 25.4).toFixed(2)},
     cols: {l: widths('l'), r: widths('r')},
     title: pack(titleRows, true, true), head: pack(headRows),
-    rows: bodyPacked, foot: pack(footRows, false, false, true),
+    rows: bodyPacked, foot: footPacked,
     rowNums: bodyRows,        // 匯出 xlsx 時要把列高寫回原本的列號
     footNums: footRows,       // 合計＋備註的原始列號，編輯內容寫回時要用
-    breaks, css, topBorderPt, noFmt: [...noFmt], empties: [...empties], mixAlign, splitCol: split, c1, c2, r1, r2, hdrLast: hdrEnd,
+    breaks, css, topBorderPt, noFmt: [...noFmt], empties: [...empties], mixAlign, badFont, splitCol: split, c1, c2, r1, r2, hdrLast: hdrEnd,
     area: colName(c1) + r1 + ':' + colName(c2) + r2
   };
 }
@@ -989,6 +1027,7 @@ function start(model, keepSettings){
   if (D.noFmt.length) notes.push(`⚠ 有 ${D.noFmt.length} 格原檔沒設對齊（Excel 的「通用」），靠左／靠右是依內容猜的（數字靠右、文字靠左）。<br>這些格子已標紅底（列印、PDF 與匯出的 Excel 都看得到），請確認後在原檔補上對齊；不想看到紅底可在「檢視」群組取消勾選。`);
   if (D.empties.length) notes.push(`⚠ 有 ${D.empties.length} 格在表格框線內卻沒有值（${D.empties.slice(0,8).join('、')}${D.empties.length > 8 ? '…' : ''}），已標淺橘底。<br>橘底只在畫面上顯示，列印、PDF 與匯出的 xlsx 都不會有；不想看到可在「檢視」群組取消勾選。`);
   if (D.mixAlign.length) notes.push(`⚠ 有 ${D.mixAlign.length} 格的對齊方式跟同一欄的多數不一樣（${D.mixAlign.slice(0,8).join('、')}${D.mixAlign.length > 8 ? '…' : ''}），已標淺紫底。<br>紫底只在畫面上顯示，列印、PDF 與匯出的 xlsx 都不會有；不想看到可在「檢視」群組取消勾選。`);
+  if (D.badFont.length) notes.push(`⚠ 有 ${D.badFont.length} 格混排的字型跟全份慣例對不上（${D.badFont.slice(0,8).join('、')}${D.badFont.length > 8 ? '…' : ''}），已標淺綠底，滑鼠移上去會說是哪個字型。<br>綠底只在畫面上顯示，列印、PDF 與匯出的 xlsx 都不會有；不想看到可在「檢視」群組取消勾選。`);
   if (notes.length) showNotice(notes.join('<hr style="border:none;border-top:1px solid #7c3aed;margin:8px 0">'));
   if (firstTime) htmlLayout();
 }
@@ -1315,12 +1354,23 @@ function withEdit(c, edited){
   if (String(edited).trim()) o.c = o.c.replace(' emptycell', '');
   return o;
 }
+const ALIGN_TW = {left:'靠左', center:'置中', right:'靠右', distributed:'分散對齊', justify:'左右對齊'};
+
 function cellEl(tag, c, h, i, side, ci){
   // 整欄對齊一設下去，欄內就一致了，紫底提示收回
   const mixOff = c.col != null && S.colAligns && S.colAligns[c.col];
   const td = el(tag, mixOff ? c.c.replace(' mixalign', '') : c.c);   // 框線在 td（border-collapse 合併），字的樣式在內層 div
   if (c.cs) td.colSpan = c.cs;
   if (c.rs) td.rowSpan = c.rs;
+  // 底色是哪來的：滑過去講一句（三種底色都有各自的原因）
+  const why = td.className.includes('badfont')
+        ? `${c.ref}：${c.badTip}（淺綠底，不會印出來）`
+    : td.className.includes('mixalign')
+        ? `${c.ref}：對齊是「${ALIGN_TW[c.al] || c.al}」，同欄多數是「${ALIGN_TW[c.mixTop] || c.mixTop}」（淺紫底，不會印出來）`
+    : td.className.includes('emptycell')
+        ? `${c.emp}：在表格框線內卻沒填值，可能是漏填（淺橘底，不會印出來）`
+    : c.nf ? '原檔沒設對齊（Excel 的「通用」），現在的靠左／靠右是依內容猜的（紅底，會印出來）' : '';
+  if (why) td.title = why;
   const w = el('div', 'cw ' + c.c + (c.v ? ' ' + c.v : ''));
   if (h != null) w.style.height = (h * S.k).toFixed(2) + 'pt';
 
@@ -2110,6 +2160,11 @@ $('shownofmt').onchange = e => {
   document.body.classList.toggle('hide-nofmt', !S.showNoFmt);
   store.set(S);
 };
+$('showbadfont').onchange = e => {
+  S.showBadFont = e.target.checked;
+  document.body.classList.toggle('hide-badfont', !S.showBadFont);
+  store.set(S);
+};
 $('showmix').onchange = e => {
   S.showMix = e.target.checked;
   document.body.classList.toggle('hide-mixalign', !S.showMix);
@@ -2427,7 +2482,10 @@ $('bprint').onclick = () => {
     'PDF 裡沒有文字，Acrobat 會說「此頁僅包含掃描頁面的影像」。\n\n' +
     '要輸出可編輯文字的 PDF，也可以改按「匯出 xlsx」再用 Excel 另存 PDF。\n\n' +
     '確定要開啟列印視窗嗎？');
-  if (ok) window.print();
+  if (!ok) return;
+  // 編輯模式的虛線框會印出來，列印前自動關掉（印完不還原，要改再自己勾回來）
+  if (S.editing){ $('edit').checked = false; $('edit').onchange({target: $('edit')}); }
+  window.print();
 };
 $('pdftext').onchange = e => { S.pdfText = e.target.checked; render(); store.set(S); };
 $('bundo').onclick = undo;
@@ -2441,6 +2499,8 @@ function bind(){
   $('pno').checked = !!S.showPno;
   $('shownofmt').checked = S.showNoFmt !== false;
   document.body.classList.toggle('hide-nofmt', S.showNoFmt === false);
+  $('showbadfont').checked = S.showBadFont !== false;
+  document.body.classList.toggle('hide-badfont', S.showBadFont === false);
   $('showmix').checked = S.showMix !== false;
   document.body.classList.toggle('hide-mixalign', S.showMix === false);
   $('showempty').checked = S.showEmpty !== false;
