@@ -67,6 +67,7 @@ body{margin:0;background:#8a8a8a;font-family:'PingFang TC',sans-serif}
 /* 未設對齊的紅底提示可整批關掉（檢視群組的開關） */
 body.hide-nofmt .nofmt{background:none!important}
 body.hide-empty td.emptycell{background:none!important}
+body.hide-mixalign td.mixalign{background:none!important}
 /* ---- 驗算結果面板 ---- */
 .panel-ov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;display:flex;align-items:center;justify-content:center;padding:24px}
 .panel-box{background:#1f1f1f;color:#eee;border:1px solid #444;border-radius:8px;max-width:840px;width:100%;max-height:86vh;display:flex;flex-direction:column}
@@ -125,6 +126,8 @@ body.row-dragging, body.row-dragging *{cursor:grabbing!important;user-select:non
 .nofmt{background:#ffb0b0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 /* 表格內沒填值的格：淺橘底提醒（跟紅底的「未設對齊」分開），只在畫面上看得到，不印出來也不寫回檔案 */
 td.emptycell{background:#ffd9a8;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+/* 同一欄裡對齊方式跟多數不一樣的格：淺紫底提醒，只在畫面上看得到 */
+td.mixalign{background:#d9c8ff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .pno{position:absolute;bottom:5mm;left:0;right:0;text-align:center;font-size:9pt;color:#333}
 .badge{position:absolute;top:3px;right:5px;font-size:11px;color:#060;background:#eee;padding:1px 5px;border-radius:3px}
 .badge.bad{color:#fff;background:#d00}
@@ -133,7 +136,7 @@ td.emptycell{background:#ffd9a8;-webkit-print-color-adjust:exact;print-color-adj
 tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
 @media print{
   body{background:#fff}
-  td.emptycell{background:none!important}   /* 橘底只是螢幕上的提醒，不印出來 */
+  td.emptycell,td.mixalign{background:none!important}   /* 橘底／紫底只是螢幕上的提醒，不印出來 */
   #bar,#drop,.badge,.mark{display:none}
   #doc{padding:0;transform:none;width:auto}
   .spread{display:block;margin:0;padding-left:0}
@@ -282,6 +285,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <label class="hot" title="打開後可直接點資料格改字。改完不會動到你調好的列高，只有字多到裝不下時才會往上撐。&#10;原檔用來對齊的白色補位字會顯示成灰色，方便刪掉。"><input type="checkbox" id="edit">編輯內容</label>
     <label title="原檔沒設對齊（Excel 的「通用」）的格會標紅底提醒人工確認。取消勾選可整批隱藏紅底。"><input type="checkbox" id="shownofmt">紅底提示</label>
     <label title="表格框線內卻沒有值的格會標淺橘底提醒（只在畫面上，列印、PDF 與匯出的 xlsx 都不會有）。取消勾選可整批隱藏橘底。"><input type="checkbox" id="showempty">橘底提示</label>
+    <label title="同一欄裡對齊方式跟多數不一樣的格會標淺紫底（只在畫面上，列印、PDF 與匯出的 xlsx 都不會有）。取消勾選可整批隱藏紫底。"><input type="checkbox" id="showmix">紫底提示</label>
     <button id="bundo" title="復原上一步（⌘Z / Ctrl+Z）。註：拖曳換列的順序不在復原範圍內" disabled>復原 (⌘Z)</button>
     <button id="bredo" title="重做（⇧⌘Z / Ctrl+Shift+Z）" disabled>重做 (⇧⌘Z)</button>
   </span>
@@ -720,6 +724,10 @@ function buildModel(x){
     // Excel 裡不換行的靠左文字會溢到右邊的空格子上（「二、一般建築及設備計畫」放在 C 欄、
     // D E 空著就是這種）。標記候選，實際會不會溢由 pack() 看隔壁有沒有東西決定。
     if (!xf.wrap && !num && (!xf.h || xf.h === 'left') && !/\n/.test(t)) o.nw = true;
+    // 對齊一致性檢查用：實際生效的水平對齊（沒設就是 Excel 的「通用」＝數字靠右、文字靠左）
+    if (chk && /\S/.test(t.replace(/<[^>]*>/g, '').replace(/[　 ]/g, ' '))){
+      o.al = xf.h || (num ? 'right' : 'left'); o.ref = ref;
+    }
     if (xf.indent) o.ind = xf.indent;   // 階層驗算要用：標籤的縮排層級
     if (VAL[xf.v]) o.v = VAL[xf.v];
     if (m[0] > 1) o.rs = m[0];
@@ -819,16 +827,36 @@ function buildModel(x){
   }
   const topBorderPt = BW[topBorderStyle] || .5;
 
+  // 同一欄裡的對齊方式不一致：多數決，跟多數不同的那幾格標淺紫底（整欄填色太粗，指到格子才找得到）
+  // 只看資料列、有字、非跨欄合併的格；合併格本來就常另設對齊，一起算會全欄誤報。
+  const bodyPacked = pack(bodyRows, true, false, true), mixAlign = [];
+  {
+    const byCol = new Map();
+    bodyPacked.forEach(r => r.l.concat(r.r).forEach(c => {
+      if (!c.al || c.cs > 1) return;
+      if (!byCol.has(c.col)) byCol.set(c.col, []);
+      byCol.get(c.col).push(c);
+    }));
+    byCol.forEach(list => {
+      const cnt = {};
+      list.forEach(c => cnt[c.al] = (cnt[c.al] || 0) + 1);
+      const kinds = Object.keys(cnt);
+      if (kinds.length < 2) return;
+      const top = kinds.sort((a,b) => cnt[b] - cnt[a])[0];
+      list.forEach(c => { if (c.al !== top){ c.c += ' mixalign'; mixAlign.push(c.ref); } });
+    });
+  }
+
   return {
     name: x.fileName, sheet: x.sheetName, k,
     page: {w: pw, h: ph, ml: +(x.margins.l * 25.4).toFixed(2), mr: +(x.margins.r * 25.4).toFixed(2),
            mt: +(x.margins.t * 25.4).toFixed(2), mb: +(x.margins.b * 25.4).toFixed(2)},
     cols: {l: widths('l'), r: widths('r')},
     title: pack(titleRows, true, true), head: pack(headRows),
-    rows: pack(bodyRows, true, false, true), foot: pack(footRows, false, false, true),
+    rows: bodyPacked, foot: pack(footRows, false, false, true),
     rowNums: bodyRows,        // 匯出 xlsx 時要把列高寫回原本的列號
     footNums: footRows,       // 合計＋備註的原始列號，編輯內容寫回時要用
-    breaks, css, topBorderPt, noFmt: [...noFmt], empties: [...empties], splitCol: split, c1, c2, r1, r2, hdrLast: hdrEnd,
+    breaks, css, topBorderPt, noFmt: [...noFmt], empties: [...empties], mixAlign, splitCol: split, c1, c2, r1, r2, hdrLast: hdrEnd,
     area: colName(c1) + r1 + ':' + colName(c2) + r2
   };
 }
@@ -960,6 +988,7 @@ function start(model, keepSettings){
   const notes = [];
   if (D.noFmt.length) notes.push(`⚠ 有 ${D.noFmt.length} 格原檔沒設對齊（Excel 的「通用」），靠左／靠右是依內容猜的（數字靠右、文字靠左）。<br>這些格子已標紅底（列印、PDF 與匯出的 Excel 都看得到），請確認後在原檔補上對齊；不想看到紅底可在「檢視」群組取消勾選。`);
   if (D.empties.length) notes.push(`⚠ 有 ${D.empties.length} 格在表格框線內卻沒有值（${D.empties.slice(0,8).join('、')}${D.empties.length > 8 ? '…' : ''}），已標淺橘底。<br>橘底只在畫面上顯示，列印、PDF 與匯出的 xlsx 都不會有；不想看到可在「檢視」群組取消勾選。`);
+  if (D.mixAlign.length) notes.push(`⚠ 有 ${D.mixAlign.length} 格的對齊方式跟同一欄的多數不一樣（${D.mixAlign.slice(0,8).join('、')}${D.mixAlign.length > 8 ? '…' : ''}），已標淺紫底。<br>紫底只在畫面上顯示，列印、PDF 與匯出的 xlsx 都不會有；不想看到可在「檢視」群組取消勾選。`);
   if (notes.length) showNotice(notes.join('<hr style="border:none;border-top:1px solid #7c3aed;margin:8px 0">'));
   if (firstTime) htmlLayout();
 }
@@ -1287,7 +1316,9 @@ function withEdit(c, edited){
   return o;
 }
 function cellEl(tag, c, h, i, side, ci){
-  const td = el(tag, c.c);            // 框線在 td（border-collapse 合併），字的樣式在內層 div
+  // 整欄對齊一設下去，欄內就一致了，紫底提示收回
+  const mixOff = c.col != null && S.colAligns && S.colAligns[c.col];
+  const td = el(tag, mixOff ? c.c.replace(' mixalign', '') : c.c);   // 框線在 td（border-collapse 合併），字的樣式在內層 div
   if (c.cs) td.colSpan = c.cs;
   if (c.rs) td.rowSpan = c.rs;
   const w = el('div', 'cw ' + c.c + (c.v ? ' ' + c.v : ''));
@@ -2079,6 +2110,11 @@ $('shownofmt').onchange = e => {
   document.body.classList.toggle('hide-nofmt', !S.showNoFmt);
   store.set(S);
 };
+$('showmix').onchange = e => {
+  S.showMix = e.target.checked;
+  document.body.classList.toggle('hide-mixalign', !S.showMix);
+  store.set(S);
+};
 $('showempty').onchange = e => {
   S.showEmpty = e.target.checked;
   document.body.classList.toggle('hide-empty', !S.showEmpty);
@@ -2405,6 +2441,8 @@ function bind(){
   $('pno').checked = !!S.showPno;
   $('shownofmt').checked = S.showNoFmt !== false;
   document.body.classList.toggle('hide-nofmt', S.showNoFmt === false);
+  $('showmix').checked = S.showMix !== false;
+  document.body.classList.toggle('hide-mixalign', S.showMix === false);
   $('showempty').checked = S.showEmpty !== false;
   document.body.classList.toggle('hide-empty', S.showEmpty === false);
   document.body.classList.toggle('editing', !!S.editing);
