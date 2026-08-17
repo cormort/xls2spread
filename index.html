@@ -1298,7 +1298,7 @@ function cellEl(tag, c, h, i, side, ci){
   if (align){
     if (align === 'distributed'){
       w.style.textAlign = 'center';
-      if (t) t = distribute(t);
+      if (t && !S.pdfText) t = distribute(t);
     } else if (align === 'justify'){
       // ponytail: 原檔多半是 white-space:pre（不換行），不放寬就沒有第二行、justify 等於沒效果
       w.style.whiteSpace = 'pre-wrap';
@@ -1317,7 +1317,8 @@ function cellEl(tag, c, h, i, side, ci){
   // PDF 可編輯：分散對齊原本是每個字包一個 <i>，靠 flex 推開才能在各家瀏覽器得到一致的字距。
   // 代價是列印成 PDF 後，那一格的每個字都是獨立元素，在 PDF 編輯器裡幾乎動不了。
   // 開這個選項就改用 CSS 兩端對齊，整格維持一段連續文字，字距交給瀏覽器（可能略有差異）。
-  if (S.pdfText && /class="dl"/.test(t || '')){
+  // 只有兩個字的分散對齊 class 是 "dl dl2"，配對時不能寫死結尾的引號
+  if (S.pdfText && (/class="dl[ "]/.test(t || '') || align === 'distributed')){
     t = t.replace(/<[^>]*>/g, '');
     w.style.textAlign = 'justify';
     w.style.textAlignLast = 'justify';
