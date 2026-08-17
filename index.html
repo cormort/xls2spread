@@ -686,7 +686,9 @@ function buildModel(x){
     if (cv && cv.v != null){
       if (cv.t === 's'){
         // 白字是「換行後的縮排」，補上換行，換行點才不會隨字型跑掉
-        const runs = x.shared[+cv.v] || [];
+        const runs = (x.shared[+cv.v] || []).slice();
+        // 尾端只有空白的 run（常見：白字縮排留在最後）會被下面補成一行空行，Excel 裡看不到，先丟掉
+        while (runs.length && !/\S/.test((runs[runs.length - 1].t || '').replace(/[　 ]/g, ' '))) runs.pop();
         let plain = '', out = '';
         runs.forEach(run => {
           if (/^#f{2}f{2}f{2}$/i.test(run.c || '') && plain && !plain.endsWith('\n')){ out += '\n'; plain += '\n'; }
@@ -700,13 +702,18 @@ function buildModel(x){
     } else if (cv && cv.is){
       t = cv.is.map(run => runSpan(run, cellFont)).join('');
     }
+    // 尾端空行：Excel 看不到，帶進來會多撐一行高度（原檔的換行是 \r\n，先正規化）
+    t = t.replace(/\r\n?/g, '\n').replace(/(?:\n[^\S\n]*)+$/, '');
     if (xf.h === 'distributed' && t) t = distribute(t);
     const m = x.merges[r + ',' + c] || [1,1];
     const mb = mergedBorder(r, c, m[0], m[1]);
     const o = {t, c: cls(ref, nohz, nobd, mb, num), col: c};
     // 資料列裡「有框線圍起來、卻沒填值」的格：多半是漏填，標淺橘底請人確認。
     // 只認框線內的格，否則表格外圍那一片空白會全部被標起來。
-    if (chk && !t && (mb.left || mb.right)){ o.c += ' emptycell'; o.emp = ref; }
+    // 框線可能畫在隔壁格上（Excel 的左框線＝左鄰居的右框線），所以兩邊都要看
+    const framed = mb.left || mb.right
+                || (c > 1 && bdOf(colName(c - 1) + r).right) || bdOf(colName(c + m[1]) + r).left;
+    if (chk && !/\S/.test(t.replace(/<[^>]*>/g, '').replace(/[　 ]/g, ' ')) && framed){ o.c += ' emptycell'; o.emp = ref; }
     // 原檔沒設對齊（Excel 的「通用」），靠左／靠右是這裡猜的，標底色請人確認
     if (!xf.h && t){ o.c += ' nofmt'; o.nf = true; noFmt.add(ref); }
     // Excel 裡不換行的靠左文字會溢到右邊的空格子上（「二、一般建築及設備計畫」放在 C 欄、
@@ -877,6 +884,7 @@ function showNotice(html, auto){
 const zone = $('zone');
 zone.onclick = () => $('file').click();
 $('file').onchange = e => { if (e.target.files[0]) load(e.target.files[0]); };
+function warnUnload(e){ e.preventDefault(); }   // 具名 → 重複 addEventListener 不會疊加
 ['dragenter','dragover'].forEach(ev => document.addEventListener(ev, e => {
   e.preventDefault(); if ($('drop').classList.contains('hide')) return; zone.classList.add('on');
 }));
@@ -943,6 +951,8 @@ function start(model, keepSettings){
   document.title = D.name + ' – 對開表排版';
   $('drop').classList.add('hide');
   $('bar').classList.remove('hide');
+  // ponytail: 載入後就攔關頁／重整，調整全在記憶體裡，關掉就沒了。不追 dirty flag，多問一次不痛。
+  addEventListener('beforeunload', warnUnload);
   undoStack = []; redoStack = []; lastSnap = null;   // 換檔／換分欄，復原歷史重來
   populateSplitSelect();
   bind(); render();
