@@ -142,7 +142,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
 @media print{
   body{background:#fff}
   td.emptycell,td.mixalign,td.badfont{background:none!important}   /* 橘底／紫底／綠底只是螢幕上的提醒，不印出來 */
-  #bar,#drop,.badge,.mark{display:none}
+  #bar,#drop,.badge,.mark,.notice,.panel-ov{display:none}
   #doc{padding:0;transform:none;width:auto}
   .spread{display:block;margin:0;padding-left:0}
   .gut{display:none}
@@ -249,7 +249,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <label title="每頁第一列跟表頭下邊線之間的留白（pt），只影響每頁的第一列。&#10;&#10;✓ 改了立刻重排，不必按平均列高。&#10;但它會從每頁容量扣掉，可能把最後一列擠到下一頁——&#10;調完建議再按一次「全部→平均列高」收尾。">首列留白<input type="number" id="hgap" step="0.5" min="0" max="30">pt</label>
     <label title="不換行的單行列統一設成這個高度（pt）。&#10;內容需要更高時以內容為準，不會切字。&#10;&#10;⚠ 只在按「平均列高」時才套用——改這裡不會立刻重排，要再按一次平均列高。&#10;按完之後手動拉過的列會脫離這個值，直到下次再按平均列高。">單行列高<input type="number" id="oneh" step="0.5" min="4">pt</label>
     <label title="會換行的多行列，在內容高度之上額外留的空間（pt）。&#10;之後剩下的空白才平均分給所有列。&#10;&#10;⚠ 只在按「平均列高」時才套用——改這裡不會立刻重排，要再按一次平均列高。">多行加高<input type="number" id="mgap" step="0.5" min="0">pt</label>
-    <label title="天線（表頭上緣）與地線（表格下緣）的粗細，「上線／左線」等手動加的框線也用這個值。&#10;&#10;✓ 改了立刻重排，不必按平均列高。">線粗<input type="number" id="bpt" step="0.25" min="0" max="3">pt</label>
+    <label title="天線（表頭上緣）與地線（表格下緣）的粗細，「上線／左線」等手動加的框線也用這個值。&#10;預設 1.5pt（原檔比這細會自動墊到 1.5，比這粗就沿用原檔）。&#10;&#10;✓ 改了立刻重排，不必按平均列高。">線粗<input type="number" id="bpt" step="0.25" min="0" max="4">pt</label>
     <label title="勾選：末頁的天地線高跟其他頁一樣，合計與備註會被包在這個高度裡，備註底部自然對齊其他頁的地線。&#10;不勾：末頁可以用獨立的高度值（右邊的數字），不受其他頁牽制。&#10;&#10;✓ 改了立刻重排，不必按平均列高。它改的是末頁容量。">
       <input type="checkbox" id="linkend">末頁對齊地線<input type="number" id="shend" step="0.5">mm</label>
   </span>
@@ -1002,7 +1002,7 @@ function start(model, keepSettings){
   dflt = {h: D.rows.map(r => r.h), breaks: D.breaks.slice(),
           lh: 1.15, fs: 1, zoom: .5, k: D.k, push: true, sh: shDflt, shend: shDflt, linkEnd: true, gap: 0, edits: {},
           colAligns: {}, titleAlign: 'seam',
-          rowBorders: {}, colBorders: {}, borderPt: D.topBorderPt || .5, headGap: 3,
+          rowBorders: {}, colBorders: {}, borderPt: Math.max(D.topBorderPt || .5, 1.5), headGap: 3,
           footH: D.foot.map(r => r.h), oneLineH: 20, multiGap: 16};
   if (keepSettings && S && S.h.length === D.rows.length){
     // 換分欄時保留使用者的列高、分頁、縮放等設定，只清掉可能失效的編輯與欄寬
@@ -1340,8 +1340,8 @@ const footTotal = () => D.foot.reduce((a, _, k) => a + footHt(k), 0);
 const capOf = last => Math.max(10, (((last ? endH() : S.sh) * 72 / 25.4) - 2) / S.k - headPt - (S.headGap || 0) - (last ? footTotal() : 0));
 const mmOf = h => h * S.k / 72 * 25.4;
 
-// 線粗：沒設過就沿用原檔天線偵測出來的粗細
-const linePt = () => S.borderPt != null ? +S.borderPt : (D.topBorderPt || .5);
+// 線粗：沒設過就沿用原檔天線偵測出來的粗細，但至少 1.5pt（原檔的 thin/medium 印出來太細）
+const linePt = () => S.borderPt != null ? +S.borderPt : Math.max(D.topBorderPt || .5, 1.5);
 const linePx = () => linePt() + 'pt solid #000';
 
 // 整欄的左右框線覆寫。cellEl 和填空列都要用：填空列直接拿第一列的 class 建 td，
