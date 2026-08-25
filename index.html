@@ -207,7 +207,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
 
   <span class="grp" id="outGrp">
     <span class="grp-title">輸出</span>
-    <button id="bprint" class="out" title="開啟瀏覽器的列印對話框。&#10;目的地務必選「另存為 PDF」，選成 Right PDF／Adobe PDF 等印表機會讓整頁變圖片、PDF 裡沒有文字。">列印 / 存 PDF</button>
+    <button id="bprint" class="out" title="開啟瀏覽器的列印對話框。&#10;目的地務必選「另存為 PDF」，選成 Right PDF／Adobe PDF 等印表機會讓整頁變圖片、PDF 裡沒有文字。&#10;&#10;PDF 上若出現不明色塊／浮水印，多半是 Chrome 擴充功能疊上去的，改用無痕視窗印一次就會消失。">列印 / 存 PDF</button>
     <button id="bxlsx" class="out" title="把調好的列高與分頁寫回 xlsx，其餘內容原封不動，可回 Excel 再微調">匯出 xlsx</button>
   </span>
 
@@ -2487,6 +2487,9 @@ $('bprint').onclick = () => {
     '不要選 Right PDF、Adobe PDF 或任何印表機名稱 —— 那些會把整頁轉成圖片，' +
     'PDF 裡沒有文字，Acrobat 會說「此頁僅包含掃描頁面的影像」。\n\n' +
     '要輸出可編輯文字的 PDF，也可以改按「匯出 xlsx」再用 Excel 另存 PDF。\n\n' +
+    '另外：PDF 上若出現不該有的色塊、圖示、邊框或浮水印（常固定在每頁同一角落），\n' +
+    '幾乎都是 Chrome 擴充功能（如 PDF 工具列、螢幕截圖、翻譯、AdBlock 等）疊在頁面上被一起印進去，\n' +
+    '不是這份版面的問題。改用「無痕視窗」（不載入擴充功能）重印一次就會消失。\n\n' +
     '確定要開啟列印視窗嗎？');
   if (!ok) return;
   // 編輯模式的虛線框會印出來，列印前自動關掉（印完不還原，要改再自己勾回來）
