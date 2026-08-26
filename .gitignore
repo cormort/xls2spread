@@ -2,3 +2,4 @@
 *.xlsx
 *.xls
 out.html
+.DS_Store
