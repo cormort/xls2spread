@@ -228,20 +228,20 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
 <body>
 
 <div id="drop">
+  <button id="blang2" class="dyn" title="Switch interface language / 切換介面語言" style="position:absolute;top:16px;right:16px">EN</button>
   <div id="zone">
-    <h1>把 .xlsx 拖進來</h1>
+    <h1 class="dyn">把 .xlsx 拖進來</h1>
     <p>或<b>點這裡選檔案</b></p>
     <p>版面（左右頁分欄、分頁、重複表頭、紙張邊界、列高欄寬字型框線）<br>全部從檔案的列印設定讀出來</p>
   </div>
-  <div id="err"></div>
-  <small>只吃 .xlsx。舊的 .xls 請先在 Excel 裡「另存新檔 → Excel 活頁簿 (.xlsx)」，
-  或用 <b>xls2spread.py</b> 轉。<br>檔案不會上傳，全部在你這台電腦的瀏覽器裡處理。</small>
+  <div id="err" class="dyn"></div>
+  <small>只吃 .xlsx。舊的 .xls 請先在 Excel 裡「另存新檔 → Excel 活頁簿 (.xlsx)」，或用 <b>xls2spread.py</b>轉。<br>檔案不會上傳，全部在你這台電腦的瀏覽器裡處理。</small>
   <input type="file" id="file" accept=".xlsx" hidden>
 </div>
 
 <!-- 版型依「操作範圍」分：上＝全域動作，左＝設定面板（分節可摺疊），中＝版面預覽 -->
 <div id="bar" class="hide">
-  <b id="fname"></b>
+  <b id="fname" class="dyn"></b>
   <span class="grp">
     <button id="bundo" title="復原上一步（⌘Z / Ctrl+Z）。註：拖曳換列的順序不在復原範圍內" disabled>復原 (⌘Z)</button>
     <button id="bredo" title="重做（⇧⌘Z / Ctrl+Shift+Z）" disabled>重做 (⇧⌘Z)</button>
@@ -251,8 +251,9 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <button id="bxlsx" class="out" title="把調好的列高與分頁寫回 xlsx，其餘內容原封不動，可回 Excel 再微調">匯出 xlsx</button>
     <button id="bnew" class="danger" title="關閉目前的檔案，回到拖曳載入畫面換一個檔案">換檔案</button>
     <button id="bhint" title="單列調高：拖該列下緣，或點選後用 ↑↓（Shift×5）／直接填列高。&#10;拖曳資料列可換順序（亦可 Alt+↑/↓）。&#10;雙擊＝最小列高。&#10;左右頁同一列永遠同高。&#10;分頁：點左側標尺的累積值，或在選取列按 B。">操作說明</button>
-    <button id="btheme" title="切換深色／亮色介面（只影響工具列與面板，頁面本身一律白底）">🌙 深色</button>
-    <button id="sideTog" title="收合／展開左側設定面板">◀ 設定</button>
+    <button id="blang" class="dyn" title="Switch interface language / 切換介面語言">EN</button>
+    <button id="btheme" class="dyn" title="切換深色／亮色介面（只影響工具列與面板，頁面本身一律白底）">🌙 深色</button>
+    <button id="sideTog" class="dyn" title="收合／展開左側設定面板">◀ 設定</button>
   </span>
 </div>
 
@@ -294,7 +295,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
 
   <details class="sec" data-key="colAlign" id="colGrp">
     <summary>選取的欄<em>對齊與框線</em></summary>
-    <div class="sb"><select id="colAlignSelect" title="選擇要設定對齊與框線的欄位"></select></div>
+    <div class="sb"><select id="colAlignSelect" class="dyn" title="選擇要設定對齊與框線的欄位"></select></div>
     <div class="sb"><span class="sublbl">對齊</span>
       <button id="bcol_l" class="abtn" title="該欄靠左對齊">左</button>
       <button id="bcol_c" class="abtn" title="該欄置中對齊">中</button>
@@ -313,7 +314,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
   <details class="sec" data-key="foot" id="footGrp">
     <summary>合計／備註<em>末頁</em></summary>
     <div class="sb">
-      <select id="footSel" title="選擇末頁的合計列或備註列"></select>
+      <select id="footSel" class="dyn" title="選擇末頁的合計列或備註列"></select>
       <label title="該列的高度（pt）。改了會即時重排，末頁容量也會跟著算"><input type="number" id="footH" step="0.5" min="4">pt</label>
     </div>
   </details>
@@ -321,7 +322,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
   <details class="sec" data-key="struct">
     <summary>結構<em>整份套用</em></summary>
     <div class="sb">
-      <label title="選擇左右頁的分界欄位，左邊的欄歸左頁、右邊的歸右頁">分欄<select id="split"></select></label>
+      <label title="選擇左右頁的分界欄位，左邊的欄歸左頁、右邊的歸右頁">分欄<select id="split" class="dyn"></select></label>
       <label title="列印範圍（A1 格式，例如 A1:T245）。&#10;檔案有設「列印範圍」時自動帶入；沒設就抓有資料的最大範圍。&#10;改這裡等於重新框要排版的區域，列高與分頁會重算。">範圍<input type="text" id="parea" size="10" placeholder="A1:T245"></label>
       <label title="表頭（每頁重複的標題＋欄位名稱）到第幾列為止，下一列開始算資料列。&#10;檔案有設「列印標題」時自動帶入；舊版 .xls 轉檔後通常沒有，要手動填。&#10;填 0 = 沒有表頭。">表頭到<input type="number" id="hdrLast" min="0" step="1">列</label>
     </div>
@@ -383,7 +384,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <summary>畫面<em>不會印出來</em></summary>
     <div class="sb">
       <label title="畫面檢視縮放，不影響列印，只影響螢幕上看到的大小">檢視<input type="range" id="zm" min="0.3" max="1.5" step="0.05"></label>
-      <button id="bview" title="切換顯示模式：滿高（一頁剛好塞滿視窗高度）/ 滿寬（對開塞滿視窗寬度）/ 自訂（手動拉檢視滑桿）">滿高</button>
+      <button id="bview" class="dyn" title="切換顯示模式：滿高（一頁剛好塞滿視窗高度）/ 滿寬（對開塞滿視窗寬度）/ 自訂（手動拉檢視滑桿）">滿高</button>
     </div>
     <div class="sb"><span class="sublbl">格子提示</span>
       <label title="原檔沒設對齊（Excel 的「通用」）的格會標紅底提醒人工確認。取消勾選可整批隱藏紅底。"><input type="checkbox" id="shownofmt">紅底</label>
@@ -411,6 +412,46 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
 </div>
 
 <script>
+/* ============================ 介面語言 ============================ */
+/* ponytail: 靜態文字用字典整批換（原文留在 Map／dataset，切回中文時還原）；
+   JS 產生的字串用 T(中,英)。class="dyn" 的元素由 dynLabels() 自己管，字典不碰。 */
+const LANG_KEY = 'spread:lang';
+let LANG = 'zh'; try { LANG = localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'zh'; } catch(e){}
+const T = (zh, en) => LANG === 'en' ? en : zh;
+const EN = {"把 .xlsx 拖進來": "Drop an .xlsx here", "或": "or ", "點這裡選檔案": "click to choose a file", "版面（左右頁分欄、分頁、重複表頭、紙張邊界、列高欄寬字型框線）": "The layout — left/right page split, page breaks, repeating headers, paper margins, row heights, column widths, fonts and rules —", "全部從檔案的列印設定讀出來": "all comes straight from the workbook's own print setup", "只吃 .xlsx。舊的 .xls 請先在 Excel 裡「另存新檔 → Excel 活頁簿 (.xlsx)」，或用": "Only .xlsx is supported. For an old .xls, use Excel's Save As → Excel Workbook (.xlsx) first, or convert it with", "轉。": ".", "檔案不會上傳，全部在你這台電腦的瀏覽器裡處理。": "Nothing is uploaded — everything runs in the browser on your own machine.", "復原 (⌘Z)": "Undo (⌘Z)", "重做 (⇧⌘Z)": "Redo (⇧⌘Z)", "列印 / 存 PDF": "Print / Save PDF", "匯出 xlsx": "Export xlsx", "換檔案": "New file", "操作說明": "How to use", "復原上一步（⌘Z / Ctrl+Z）。註：拖曳換列的順序不在復原範圍內": "Undo the last step (⌘Z / Ctrl+Z). Note: reordering rows by dragging is not undoable", "重做（⇧⌘Z / Ctrl+Shift+Z）": "Redo (⇧⌘Z / Ctrl+Shift+Z)", "開啟瀏覽器的列印對話框。\n目的地務必選「另存為 PDF」，選成 Right PDF／Adobe PDF 等印表機會讓整頁變圖片、PDF 裡沒有文字。\n\nPDF 上若出現不明色塊／浮水印，多半是 Chrome 擴充功能疊上去的，改用無痕視窗印一次就會消失。": "Opens the browser's print dialog.\nSet Destination to \"Save as PDF\" — picking Right PDF, Adobe PDF or any printer name rasterizes the page, leaving a PDF with no text in it.\n\nStray color blocks or watermarks in the PDF are almost always a Chrome extension painting over the page; print once from an incognito window and they disappear.", "把調好的列高與分頁寫回 xlsx，其餘內容原封不動，可回 Excel 再微調": "Writes the adjusted row heights and page breaks back into the xlsx, leaving everything else untouched, so you can keep tweaking in Excel", "關閉目前的檔案，回到拖曳載入畫面換一個檔案": "Closes the current file and returns to the drop screen so you can load another one", "單列調高：拖該列下緣，或點選後用 ↑↓（Shift×5）／直接填列高。\n拖曳資料列可換順序（亦可 Alt+↑/↓）。\n雙擊＝最小列高。\n左右頁同一列永遠同高。\n分頁：點左側標尺的累積值，或在選取列按 B。": "Resize one row: drag its bottom edge, or select it and press ↑↓ (Shift = ×5), or type a height.\nDrag a data row to reorder it (Alt+↑/↓ works too).\nDouble-click = shrink to fit.\nThe same row is always the same height on the left and right page.\nPage breaks: click a running total on the left ruler, or press B on the selected row.", "切換深色／亮色介面（只影響工具列與面板，頁面本身一律白底）": "Toggle dark / light UI (toolbar and panel only — the pages stay white)", "收合／展開左側設定面板": "Collapse / expand the settings panel", "選取的列": "Selected row", "先在畫面上點選": "click a row on the page first", "列高": "Row height", "最小列高": "Shrink to fit", "此列前分頁 (B)": "Break before (B)", "刪除本列": "Delete row", "本列框線": "Row rules", "上線": "Top", "下線": "Bottom", "上下": "Both", "無線": "None", "目前選取列的高度（pt），可直接輸入數字修改": "Height of the selected row (pt) — type a number to change it", "把目前選取的那一列壓到文字實際需要的最小高度": "Shrinks the selected row to the smallest height its text actually needs", "在目前選取列之前插入手動分頁（快捷鍵 B），再按一次取消": "Inserts a manual page break before the selected row (shortcut B); press again to remove it", "從版面刪掉目前選取的資料列。\n復原鍵救不回來，會先問一次。\n匯出 xlsx 時原檔那一列會被設成隱藏，不是真的刪除。": "Removes the selected data row from the layout.\nUndo will not bring it back, so you get one confirmation.\nOn export the original row is marked hidden in the xlsx, not actually deleted.", "選取列只畫上框線": "Rule above the selected row only", "選取列只畫下框線": "Rule below the selected row only", "選取列上下都畫框線": "Rules above and below the selected row", "選取列不畫上下框線": "No rules above or below the selected row", "列高與分頁": "Row heights & breaks", "本頁／整份": "this page / whole document", "本頁": "This page", "平均列高": "Even heights", "全部": "All pages", "HTML 重排": "Reflow", "分頁": "Page breaks", "清除分頁": "Clear breaks", "凍結分頁": "Freeze breaks", "自動分頁": "Auto breaks", "只把這一頁的每一列壓到文字實際需要的高度": "Shrinks every row on this page to the height its text actually needs", "套用「單行列高」與「多行加高」兩個設定，再把剩下的空白平均分給所有列。\n單行列＝單行列高；多行列＝內容高＋多行加高；空白間隔列不動。\n末頁不攤平（資料少，攤了會把每列撐得很高）。\n\n改過那兩個數字後要按這裡才會生效。": "Applies the \"Single-line height\" and \"Multi-line padding\" settings, then splits the remaining slack evenly across the rows.\nSingle-line rows get the fixed height; wrapping rows get content height plus the padding; blank spacer rows are left alone.\nThe last page is not spread out (too little data — it would blow every row up).\n\nAfter changing either number, press this for it to take effect.", "把所有頁面的每一列都壓到文字實際需要的最小高度": "Shrinks every row on every page to the smallest height its text needs", "每一頁都套用「單行列高」與「多行加高」，再把剩餘空白平均分給所有列。\n末頁只做前半段，不把空白攤到列高上。\n\n改過那兩個數字後要按這裡才會生效。": "Applies \"Single-line height\" and \"Multi-line padding\" on every page, then splits the remaining slack evenly across the rows.\nThe last page only gets the first half — its slack is not spread into the row heights.\n\nAfter changing either number, press this for it to take effect.", "忽略 Excel 原始列高與分頁，全部依內容重新排版（要回原樣按「重設」）": "Ignores Excel's original row heights and breaks and re-lays out everything from the content (press Reset to go back)", "清掉所有手動分頁點，改成完全照列高自動流動分頁": "Clears every manual break and lets pages flow purely by row height", "把目前每一頁的起點通通寫成手動分頁點，並關掉自動分頁。\n之後改列高、改字級都不會讓頁面重新流動，版面就定住了。": "Turns the current first row of every page into a manual break and turns auto-breaking off.\nAfter that, changing row heights or font size will not reflow the pages — the layout is pinned.", "打勾後分頁會依列高自動計算，列高改變時頁面會重新流動": "When checked, breaks are computed from row heights and pages reflow whenever a height changes", "選取的欄": "Selected column", "對齊與框線": "alignment & rules", "對齊": "Align", "左": "L", "中": "C", "右": "R", "散": "Dist", "齊": "Just", "框線": "Rules", "左線": "Left", "右線": "Right", "左右": "Both", "選擇要設定對齊與框線的欄位": "Choose the column whose alignment and rules you want to set", "該欄靠左對齊": "Align this column left", "該欄置中對齊": "Center this column", "該欄靠右對齊": "Align this column right", "該欄分散對齊": "Distribute this column", "該欄左右對齊（兩端對齊，換行後末行靠左）": "Justify this column (last line of a wrap stays left)", "該欄只畫左框線": "Rule on the left of this column only", "該欄只畫右框線": "Rule on the right of this column only", "該欄左右都畫框線": "Rules on both sides of this column", "該欄不畫左右框線": "No side rules on this column", "合計／備註": "Totals & notes", "末頁": "last page", "選擇末頁的合計列或備註列": "Pick the totals row or a note row on the last page", "該列的高度（pt）。改了會即時重排，末頁容量也會跟著算": "Height of that row (pt). Changing it reflows immediately and recomputes the last page's capacity", "結構": "Structure", "整份套用": "whole document", "分欄": "Split at", "範圍": "Range", "表頭到": "Header ends at row", "列": "", "選擇左右頁的分界欄位，左邊的欄歸左頁、右邊的歸右頁": "Choose where the spread splits: columns to the left go on the left page, the rest on the right", "列印範圍（A1 格式，例如 A1:T245）。\n檔案有設「列印範圍」時自動帶入；沒設就抓有資料的最大範圍。\n改這裡等於重新框要排版的區域，列高與分頁會重算。": "Print range in A1 notation, e.g. A1:T245.\nTaken from the workbook's own print area when it has one; otherwise the largest range with data.\nChanging it re-frames the area being laid out, so row heights and breaks are recomputed.", "表頭（每頁重複的標題＋欄位名稱）到第幾列為止，下一列開始算資料列。\n檔案有設「列印標題」時自動帶入；舊版 .xls 轉檔後通常沒有，要手動填。\n填 0 = 沒有表頭。": "Last row of the header (the title plus column names repeated on every page); data rows start on the next one.\nTaken from the workbook's print titles when it has them; converted .xls files usually do not, so fill it in by hand.\n0 = no header.", "文字": "Text", "字型": "Font", "原檔字型": "As in file", "微軟正黑體": "Microsoft JhengHei", "新細明體": "PMingLiU", "細明體": "MingLiU", "標楷體": "DFKai-SB", "蘋方 (PingFang)": "PingFang TC", "思源黑體": "Noto Sans CJK TC", "思源宋體": "Noto Serif CJK TC", "標題對齊": "Title align", "中縫接續": "Across the gutter", "置中": "Center", "靠左": "Left", "靠右": "Right", "字級": "Font size", "行距": "Line height", "全域字型設定，切換後自動重新計算列高": "Font for the whole document; row heights are recomputed when you switch", "設定表頭標題的對齊方式": "How the header title is aligned", "字級倍率，1 = 原始大小；調大字會變大但可能溢出格子": "Font size multiplier, 1 = original. Larger text may overflow its cell", "CSS 行距，影響同一格內多行文字之間的距離": "CSS line height — the spacing between wrapped lines inside one cell", "版面": "Layout", "縮放": "Scale", "列間距": "Row spacing", "天地線高": "Rule-to-rule height", "首列留白": "First-row gap", "單行列高": "Single-line height", "多行加高": "Multi-line padding", "線粗": "Rule width", "末頁對齊地線": "Last page ends on the bottom rule", "頁碼": "Page numbers", "Excel 的列印縮放比例，影響文字和框線的實際大小": "Excel's print scaling — it changes the real size of the text and the rules", "每一列額外墊高，等於拉開它跟下一列之間的距離；全部頁面一起套用": "Extra height added to every row, i.e. the gap to the row below; applied on all pages", "表頭天線到地線之間的總高（mm）。這個值決定每頁能塞多少資料列：\n• 資料列不夠填滿時，地線會靠一列空白列撐到這個位置\n• 資料列太多時會自動分頁\n• 預設值 = 紙張高 − 上下邊界 − 標題區高度\n• 所有頁面共用同一個值，地線才會對齊": "Total height (mm) from the header's top rule to the bottom rule. It decides how many data rows fit on a page:\n• when there are not enough rows, a filler row pushes the bottom rule down to this height\n• when there are too many, the page breaks\n• default = paper height − top/bottom margins − title block\n• every page shares one value, which is what keeps the bottom rules aligned", "每頁第一列跟表頭下邊線之間的留白（pt），只影響每頁的第一列。\n\n✓ 改了立刻重排，不必按平均列高。\n但它會從每頁容量扣掉，可能把最後一列擠到下一頁——\n調完建議再按一次「全部→平均列高」收尾。": "Space (pt) between the header's bottom rule and the first row of each page; it only affects that first row.\n\n✓ Takes effect immediately — no need to press Even heights.\nIt does come out of each page's capacity, though, so it can push the last row onto the next page — finish with All → Even heights.", "不換行的單行列統一設成這個高度（pt）。\n內容需要更高時以內容為準，不會切字。\n\n⚠ 只在按「平均列高」時才套用——改這裡不會立刻重排，要再按一次平均列高。\n按完之後手動拉過的列會脫離這個值，直到下次再按平均列高。": "Every single-line row is set to this height (pt).\nRows whose content needs more keep the taller height — text is never clipped.\n\n⚠ Only applied when you press Even heights — editing this does not reflow on its own.\nAny row you drag by hand afterwards leaves this value behind until the next Even heights.", "會換行的多行列，在內容高度之上額外留的空間（pt）。\n之後剩下的空白才平均分給所有列。\n\n⚠ 只在按「平均列高」時才套用——改這裡不會立刻重排，要再按一次平均列高。": "Extra space (pt) added above the content height of rows that wrap.\nWhatever slack is left after that is split evenly across the rows.\n\n⚠ Only applied when you press Even heights — editing this does not reflow on its own.", "天線（表頭上緣）與地線（表格下緣）的粗細，「上線／左線」等手動加的框線也用這個值。\n預設 1.5pt（原檔比這細會自動墊到 1.5，比這粗就沿用原檔）。\n\n✓ 改了立刻重排，不必按平均列高。": "Width of the top and bottom rules, and of any rule you add by hand with Top / Left and friends.\nDefault 1.5pt — thinner rules in the source are bumped up to 1.5, thicker ones are kept.\n\n✓ Takes effect immediately — no need to press Even heights.", "勾選：末頁的天地線高跟其他頁一樣，合計與備註會被包在這個高度裡，備註底部自然對齊其他頁的地線。\n不勾：末頁可以用獨立的高度值（右邊的數字），不受其他頁牽制。\n\n✓ 改了立刻重排，不必按平均列高。它改的是末頁容量。": "Checked: the last page uses the same rule-to-rule height as the rest, so the totals and notes sit inside it and the notes end flush with the other pages' bottom rule.\nUnchecked: the last page gets its own height (the number on the right), independent of the others.\n\n✓ Takes effect immediately — no need to press Even heights. It changes the last page's capacity.", "在每頁底部置中顯示頁碼（左頁奇數、右頁偶數）。預設不顯示。": "Centers a page number at the foot of every page (odd on the left, even on the right). Off by default.", "檢查": "Checks", "不動版面": "layout untouched", "驗算": "Cross-foot", "原檔檢誤": "Source check", "用目前畫面上的數字重新核對：\n【階層】總計 = Σ主管 → 主管 = Σ基金（公司）→ 基金 = Σ大分類 → 大分類 = Σ各計畫\n【交叉】比照原檔 sumif：各「◯◯主管」加總、計畫別合計（一般建築及設備＋繼續＋新興）都要等於總計\n百分比欄自動排除。": "Re-adds the numbers currently on screen:\n[Hierarchy] Grand total = Σ agencies → agency = Σ funds → fund = Σ major categories → category = Σ projects\n[Cross-check] Same idea as the workbook's own SUMIFs: the agency rows, and the project-type totals, must each add up to the grand total.\nPercentage columns are skipped automatically.", "讀原檔裡「差異數」那幾列（通常放在列印範圍外的 sumif 檢誤區），檢查是不是全部為 0。\n那是 Excel 存檔時算好的值，本工具不重算公式。": "Reads the \"variance\" rows in the source file (usually a SUMIF check block outside the print area) and verifies they are all zero.\nThose are the values Excel cached on save — this tool does not recalculate formulas.", "畫面": "View", "不會印出來": "never printed", "檢視": "Zoom", "滿高": "Fit height", "格子提示": "Cell flags", "紅底": "Red", "橘底": "Orange", "紫底": "Purple", "綠底": "Green", "畫面檢視縮放，不影響列印，只影響螢幕上看到的大小": "On-screen zoom only — it does not affect printing", "切換顯示模式：滿高（一頁剛好塞滿視窗高度）/ 滿寬（對開塞滿視窗寬度）/ 自訂（手動拉檢視滑桿）": "Cycles the display mode: Fit height (one page fills the window height) / Fit width (the spread fills the window width) / Custom (drag the zoom slider yourself)", "原檔沒設對齊（Excel 的「通用」）的格會標紅底提醒人工確認。取消勾選可整批隱藏紅底。": "Cells with no alignment set in the source (Excel's \"General\") get a red background so you can check them by hand. Uncheck to hide them all.", "表格框線內卻沒有值的格會標淺橘底提醒（只在畫面上，列印、PDF 與匯出的 xlsx 都不會有）。取消勾選可整批隱藏橘底。": "Cells inside the table rules with no value get a light orange background (on screen only — never in print, the PDF or the exported xlsx). Uncheck to hide them all.", "同一欄裡對齊方式跟多數不一樣的格會標淺紫底（只在畫面上，列印、PDF 與匯出的 xlsx 都不會有）。取消勾選可整批隱藏紫底。": "Cells aligned differently from the rest of their column get a light purple background (on screen only — never in print, the PDF or the exported xlsx). Uncheck to hide them all.", "一格內混了兩種以上字型、其中有一種跟全份慣例對不上的格會標淺綠底（只在畫面上，列印、PDF 與匯出的 xlsx 都不會有）。取消勾選可整批隱藏綠底。": "Cells mixing two or more fonts where one does not match the document's convention get a light green background (on screen only — never in print, the PDF or the exported xlsx). Uncheck to hide them all.", "編輯與設定": "Editing & settings", "編輯內容": "Edit cells", "PDF 文字可編輯": "Editable PDF text", "匯出設定": "Export settings", "匯入設定": "Import settings", "重設": "Reset", "打開後可直接點資料格改字。改完不會動到你調好的列高，只有字多到裝不下時才會往上撐。\n原檔用來對齊的白色補位字會顯示成灰色，方便刪掉。": "Turn this on to click a cell and retype it. Editing leaves your row heights alone; a row only grows when the text no longer fits.\nWhite spacer characters the source used for alignment are shown in gray so you can delete them.", "分散對齊的格子原本是一個字一個元素（字距最準），存成 PDF 後在編輯器裡一字一塊、幾乎不能編。\n打勾改用 CSS 兩端對齊，整格是一段連續文字、PDF 編得動，字距由瀏覽器決定、可能跟 Excel 略有差異。": "Distributed cells are normally laid out one character per element, which gives the truest spacing but turns into one uneditable block per character in a PDF.\nCheck this to use CSS justification instead: the cell becomes one run of text that a PDF editor can handle, with spacing decided by the browser and possibly a little different from Excel.", "把目前的列高、分頁、縮放等設定匯出成 JSON 檔，下次可匯入還原": "Saves the current row heights, breaks, scaling and so on to a JSON file you can import later", "匯入之前匯出的 JSON 設定檔，還原列高、分頁等設定": "Loads a JSON settings file you exported earlier and restores the row heights, breaks and the rest", "回到 Excel 原始的列高與分頁，放棄所有調整": "Goes back to Excel's original row heights and page breaks, discarding every adjustment"};
+const origText = new Map();
+const tr = s => { const t = s.trim(); const e = EN[t]; return t && e !== undefined ? s.replace(t, e) : s; };
+function applyLang(){
+  document.documentElement.lang = LANG === 'en' ? 'en' : 'zh-Hant';
+  for (const root of [$('bar'), $('side'), $('drop')]){
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let n; n = w.nextNode();){
+      if (n.parentElement.closest('.dyn')) continue;
+      if (!origText.has(n)) origText.set(n, n.nodeValue);
+      n.nodeValue = LANG === 'en' ? tr(origText.get(n)) : origText.get(n);
+    }
+    root.querySelectorAll('[title],[placeholder]').forEach(el2 => {
+      if (el2.closest('.dyn')) return;
+      for (const a of ['title','placeholder']){
+        if (!el2.hasAttribute(a)) continue;
+        const k = 'o' + a;
+        if (el2.dataset[k] == null) el2.dataset[k] = el2.getAttribute(a);
+        el2.setAttribute(a, LANG === 'en' ? tr(el2.dataset[k]) : el2.dataset[k]);
+        if (el2.dataset.baseTitle) delete el2.dataset.baseTitle;   // 整欄按鈕的 tooltip 會重組，換語言後重抓
+      }
+    });
+  }
+}
+function dynLabels(){
+  $('blang').textContent = $('blang2').textContent = LANG === 'en' ? '中文' : 'EN';
+  $('btheme').textContent = document.body.classList.contains('light') ? T('☀ 亮色','☀ Light') : T('🌙 深色','🌙 Dark');
+  $('sideTog').textContent = document.body.classList.contains('sideOff') ? T('▶ 設定','▶ Settings') : T('◀ 設定','◀ Settings');
+  $('zone').querySelector('h1').textContent = T('把 .xlsx 拖進來','Drop an .xlsx here');
+  if (D){ document.title = D.name + T(' – 對開表排版',' – Spread layout'); updateViewBtn(); populateFootSelect(); populateColAlignSelect(); render(); }
+}
+</script>
+
+<script>
 /* ============================ 讀 xlsx ============================ */
 /* ponytail: 用瀏覽器內建的 DecompressionStream 解 zip、DOMParser 解 XML，不帶任何函式庫。
    只處理一般 xlsx（非 zip64、非加密）；真的遇到再換 SheetJS。 */
@@ -420,12 +461,12 @@ async function unzip(buf){
   let eo = -1;
   for (let i = u8.length - 22; i >= 0 && i > u8.length - 65558; i--)
     if (dv.getUint32(i, true) === 0x06054b50){ eo = i; break; }
-  if (eo < 0) throw new Error('這不是有效的 xlsx（找不到 zip 結構）');
+  if (eo < 0) throw new Error(T('這不是有效的 xlsx（找不到 zip 結構）','Not a valid xlsx (no zip structure found)'));
   const n = dv.getUint16(eo + 10, true);
   let p = dv.getUint32(eo + 16, true);
   const files = {};
   for (let i = 0; i < n; i++){
-    if (dv.getUint32(p, true) !== 0x02014b50) throw new Error('zip 目錄壞掉');
+    if (dv.getUint32(p, true) !== 0x02014b50) throw new Error(T('zip 目錄壞掉','The zip directory is corrupt'));
     const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true);
     const nl = dv.getUint16(p + 28, true), el_ = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true);
     const name = new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nl));
@@ -582,7 +623,7 @@ async function parseXlsx(buf, fileName){
       if (t && t.length > best){ best = t.length; pick = s; }
     }
   }
-  if (!pick) throw new Error('找不到工作表');
+  if (!pick) throw new Error(T('找不到工作表','No worksheet found'));
 
   SRC = {z, path: pick.path, name: fileName};
   const sh = xml(await entry(z, pick.path));
@@ -980,7 +1021,8 @@ function buildModel(x){
       const bad = c.fp.filter(([k2, fn]) => dom[k2] && fn !== dom[k2]);
       if (!bad.length) return;
       c.c += ' badfont';
-      c.badTip = bad.map(([k2, fn, s]) => `${k2}「${s}」用了「${fn}」（全份多為「${dom[k2]}」）`).join('；');
+      c.badTip = bad.map(([k2, fn, s]) => T(`${k2}「${s}」用了「${fn}」（全份多為「${dom[k2]}」）`,
+        `${k2 === '中文' ? 'CJK' : 'Latin'} "${s}" uses "${fn}" (most of the document uses "${dom[k2]}")`)).join(T('；','; '));
       badFont.push(c.ref);
     });
   }
@@ -1015,10 +1057,10 @@ function showPanel(title, body, opts = {}){
   const bd = el('div'); bd.className = 'panel-body';
   if (opts.html) bd.innerHTML = body; else bd.textContent = body;
   const ft = el('div'); ft.className = 'panel-foot';
-  const cp = el('button'); cp.textContent = '複製全文';
+  const cp = el('button'); cp.textContent = T('複製全文','Copy all');
   cp.onclick = () => {
     const txt = bd.innerText;
-    const done = () => { cp.textContent = '已複製'; setTimeout(() => cp.textContent = '複製全文', 1200); };
+    const done = () => { cp.textContent = T('已複製','Copied'); setTimeout(() => cp.textContent = T('複製全文','Copy all'), 1200); };
     if (navigator.clipboard && navigator.clipboard.writeText){
       navigator.clipboard.writeText(txt).then(done, done);
     } else {   // file:// 或舊瀏覽器沒有非同步剪貼簿 API 時，退回去用選取複製
@@ -1029,7 +1071,7 @@ function showPanel(title, body, opts = {}){
       ta.remove(); done();
     }
   };
-  const ok = el('button'); ok.textContent = '關閉'; ok.onclick = () => ov.remove();
+  const ok = el('button'); ok.textContent = T('關閉','Close'); ok.onclick = () => ov.remove();
   ft.append(cp, ok);
   box.append(hd, bd, ft);
   ov.appendChild(box);
@@ -1066,18 +1108,19 @@ $('bnew').onclick = () => { $('drop').classList.remove('hide'); $('bar').classLi
 async function load(file){
   $('err').textContent = '';
   if (/\.xls$/i.test(file.name)){
-    $('err').textContent = '這是舊版 .xls，瀏覽器讀不了。\n請在 Excel 另存為 .xlsx，或用 xls2spread.py 轉。';
+    $('err').textContent = T('這是舊版 .xls，瀏覽器讀不了。\n請在 Excel 另存為 .xlsx，或用 xls2spread.py 轉。',
+      'This is a legacy .xls, which the browser cannot read.\nSave it as .xlsx from Excel, or convert it with xls2spread.py.');
     return;
   }
   try {
-    zone.querySelector('h1').textContent = '讀取中…';
+    zone.querySelector('h1').textContent = T('讀取中…','Loading…');
     const model = await parseXlsx(await file.arrayBuffer(), file.name);
     start(model);
   } catch (e){
-    $('err').textContent = '讀取失敗：' + e.message;
+    $('err').textContent = T('讀取失敗：','Could not read the file: ') + e.message;
     console.error(e);
   } finally {
-    zone.querySelector('h1').textContent = '把 .xlsx 拖進來';
+    zone.querySelector('h1').textContent = T('把 .xlsx 拖進來','Drop an .xlsx here');
   }
 }
 
@@ -1088,7 +1131,7 @@ let KEY = '', store = {get: () => ({}), set: () => {}};
 
 function start(model, keepSettings){
   D = model;
-  if (!D.rows.length) throw new Error('列印範圍內沒有資料列');
+  if (!D.rows.length) throw new Error(T('列印範圍內沒有資料列','No data rows inside the print range'));
   KEY = 'spread:' + D.name + ':' + D.sheet;
   store = {
     get(){ try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e){ return {}; } },
@@ -1119,7 +1162,7 @@ function start(model, keepSettings){
     + `\n@media print{@page{size:${D.page.w}mm ${D.page.h}mm;margin:0}`
     + `.page{height:calc(${D.page.h}mm - 0.2mm)!important}}`;
   $('fname').textContent = D.name + ' / ' + D.sheet;
-  document.title = D.name + ' – 對開表排版';
+  document.title = D.name + T(' – 對開表排版',' – Spread layout');
   $('drop').classList.add('hide');
   $('bar').classList.remove('hide');
   // ponytail: 載入後就攔關頁／重整，調整全在記憶體裡，關掉就沒了。不追 dirty flag，多問一次不痛。
@@ -1128,10 +1171,19 @@ function start(model, keepSettings){
   populateSplitSelect();
   bind(); render();
   const notes = [];
-  if (D.noFmt.length) notes.push(`⚠ 有 ${D.noFmt.length} 格原檔沒設對齊（Excel 的「通用」），靠左／靠右是依內容猜的（數字靠右、文字靠左）。<br>這些格子已標紅底（列印、PDF 與匯出的 Excel 都看得到），請確認後在原檔補上對齊；不想看到紅底可在「檢視」群組取消勾選。`);
-  if (D.empties.length) notes.push(`⚠ 有 ${D.empties.length} 格在表格框線內卻沒有值（${D.empties.slice(0,8).join('、')}${D.empties.length > 8 ? '…' : ''}），已標淺橘底。<br>橘底只在畫面上顯示，列印、PDF 與匯出的 xlsx 都不會有；不想看到可在「檢視」群組取消勾選。`);
-  if (D.mixAlign.length) notes.push(`⚠ 有 ${D.mixAlign.length} 格的對齊方式跟同一欄的多數不一樣（${D.mixAlign.slice(0,8).join('、')}${D.mixAlign.length > 8 ? '…' : ''}），已標淺紫底。<br>紫底只在畫面上顯示，列印、PDF 與匯出的 xlsx 都不會有；不想看到可在「檢視」群組取消勾選。`);
-  if (D.badFont.length) notes.push(`⚠ 有 ${D.badFont.length} 格混排的字型跟全份慣例對不上（${D.badFont.slice(0,8).join('、')}${D.badFont.length > 8 ? '…' : ''}），已標淺綠底，滑鼠移上去會說是哪個字型。<br>綠底只在畫面上顯示，列印、PDF 與匯出的 xlsx 都不會有；不想看到可在「檢視」群組取消勾選。`);
+  const some = a => a.slice(0,8).join(T('、',', ')) + (a.length > 8 ? '…' : '');
+  if (D.noFmt.length) notes.push(T(
+    `⚠ 有 ${D.noFmt.length} 格原檔沒設對齊（Excel 的「通用」），靠左／靠右是依內容猜的（數字靠右、文字靠左）。<br>這些格子已標紅底（列印、PDF 與匯出的 Excel 都看得到），請確認後在原檔補上對齊；不想看到紅底可在「檢視」群組取消勾選。`,
+    `⚠ ${D.noFmt.length} cells have no alignment set in the source (Excel's "General"), so left / right was guessed from the content (numbers right, text left).<br>They are flagged with a red background, which does show up in print, the PDF and the exported Excel. Fix the alignment in the source file; to hide the red, uncheck it under View.`));
+  if (D.empties.length) notes.push(T(
+    `⚠ 有 ${D.empties.length} 格在表格框線內卻沒有值（${some(D.empties)}），已標淺橘底。<br>橘底只在畫面上顯示，列印、PDF 與匯出的 xlsx 都不會有；不想看到可在「檢視」群組取消勾選。`,
+    `⚠ ${D.empties.length} cells inside the table rules have no value (${some(D.empties)}); they are flagged light orange.<br>Orange is on screen only — never in print, the PDF or the exported xlsx. To hide it, uncheck it under View.`));
+  if (D.mixAlign.length) notes.push(T(
+    `⚠ 有 ${D.mixAlign.length} 格的對齊方式跟同一欄的多數不一樣（${some(D.mixAlign)}），已標淺紫底。<br>紫底只在畫面上顯示，列印、PDF 與匯出的 xlsx 都不會有；不想看到可在「檢視」群組取消勾選。`,
+    `⚠ ${D.mixAlign.length} cells are aligned differently from the rest of their column (${some(D.mixAlign)}); they are flagged light purple.<br>Purple is on screen only — never in print, the PDF or the exported xlsx. To hide it, uncheck it under View.`));
+  if (D.badFont.length) notes.push(T(
+    `⚠ 有 ${D.badFont.length} 格混排的字型跟全份慣例對不上（${some(D.badFont)}），已標淺綠底，滑鼠移上去會說是哪個字型。<br>綠底只在畫面上顯示，列印、PDF 與匯出的 xlsx 都不會有；不想看到可在「檢視」群組取消勾選。`,
+    `⚠ ${D.badFont.length} cells mix fonts in a way that does not match the document's convention (${some(D.badFont)}); they are flagged light green — hover to see which font.<br>Green is on screen only — never in print, the PDF or the exported xlsx. To hide it, uncheck it under View.`));
   if (notes.length) showNotice(notes.join('<hr style="border:none;border-top:1px solid #7c3aed;margin:8px 0">'));
   if (firstTime) htmlLayout();
 }
@@ -1151,7 +1203,7 @@ function populateFootSelect(){
   selEl.innerHTML = '';
   D.foot.forEach((r, k) => {
     const o = el('option');
-    o.value = k; o.textContent = k === 0 ? '合計' : '備註' + (D.foot.length > 2 ? k : '');
+    o.value = k; o.textContent = k === 0 ? T('合計','Totals') : T('備註','Note') + (D.foot.length > 2 ? T(String(k), ' ' + k) : '');
     selEl.appendChild(o);
   });
   selEl.disabled = !D.foot.length;
@@ -1166,7 +1218,7 @@ function populateColAlignSelect(){
   for (let c = D.c1; c <= D.c2; c++){
     const o = el('option');
     o.value = c;
-    o.textContent = `欄 ${colName(c)}`;
+    o.textContent = T('欄 ','Col ') + colName(c);
     selEl.appendChild(o);
   }
   // 預設停在 G 欄（最常調的那欄）；超出範圍就退回第一欄
@@ -1185,11 +1237,11 @@ $(`split`).onchange = e => {
 $('parea').onchange = e => {
   if (!RAW) return;
   const v = e.target.value.trim().toUpperCase().replace(/\$/g, '');
-  if (!/^[A-Z]+\d+:[A-Z]+\d+$/.test(v)){ alert('格式要像 A1:T245'); e.target.value = D.area; return; }
+  if (!/^[A-Z]+\d+:[A-Z]+\d+$/.test(v)){ alert(T('格式要像 A1:T245','The format has to look like A1:T245')); e.target.value = D.area; return; }
   RAW._areaOverride = v;
   RAW._hdrOverride = null;   // 範圍換了，原本的表頭列號多半就不對了
   try { start(buildModel(RAW)); }
-  catch (err){ alert('這個範圍排不出來：' + err.message); RAW._areaOverride = null; start(buildModel(RAW)); }
+  catch (err){ alert(T('這個範圍排不出來：','This range cannot be laid out: ') + err.message); RAW._areaOverride = null; start(buildModel(RAW)); }
 };
 $('hdrLast').onchange = e => {
   if (!RAW) return;
@@ -1213,7 +1265,7 @@ $('hdrLast').onchange = e => {
 // ---- 框線事件綁定 ----
 [['t','top'],['b','bottom'],['both','both'],['n','none']].forEach(([k, v]) => {
   $(`brb_${k}`).onclick = () => {
-    if (sel < 0){ alert('請先點選要設定框線的資料列'); return; }
+    if (sel < 0){ alert(T('請先點選要設定框線的資料列','Select the data row whose rules you want to set first')); return; }
     if (!S.rowBorders) S.rowBorders = {};
     S.rowBorders[sel] = v;
     render(); store.set(S);
@@ -1235,7 +1287,8 @@ $('colGrp').addEventListener('mouseover', e => {
   if (!b) return;
   if (!b.dataset.baseTitle) b.dataset.baseTitle = b.title;
   const v = +$('colAlignSelect').value;
-  b.title = `${b.dataset.baseTitle}\n⚠ 目前調整欄位：欄 ${colName(v)}（請先確認上方下拉選單）`;
+  b.title = b.dataset.baseTitle + T(`\n⚠ 目前調整欄位：欄 ${colName(v)}（請先確認上方下拉選單）`,
+                                       `\n⚠ Currently editing column ${colName(v)} — check the dropdown above first`);
 });
 
 $('footSel').onchange = () => { $('footH').value = footHt(+$('footSel').value); };
@@ -1293,7 +1346,7 @@ function evenOut(all){
   const pg = pages();
   const targets = all ? pg.map((idx,n) => [idx, n === pg.length-1])
                       : pg.map((idx,n) => [idx, n === pg.length-1]).filter(([idx]) => idx.includes(sel));
-  if (!targets.length){ alert('先點選要調整的那一頁裡的任一列'); return; }
+  if (!targets.length){ alert(T('先點選要調整的那一頁裡的任一列','Click any row on the page you want to adjust first')); return; }
   const multi = multiLineRows();
   targets.forEach(([idx, last]) => {
     const one   = S.oneLineH  != null ? +S.oneLineH  : 20;
@@ -1320,9 +1373,9 @@ function evenOut(all){
 // 把調好的列高與分頁寫回 xlsx：只改工作表 XML 的 ht 和 rowBreaks，
 // 其他（公式、樣式、欄寬、巨集、圖形）全部照抄，回 Excel 還能繼續微調。
 async function exportXlsx(){
-  if (!SRC){ alert('沒有原始檔可以寫回'); return; }
+  if (!SRC){ alert(T('沒有原始檔可以寫回','There is no source file to write back to')); return; }
   const btn = $('bxlsx'), old = btn.textContent;
-  btn.textContent = '產生中…'; btn.disabled = true;
+  btn.textContent = T('產生中…','Building…'); btn.disabled = true;
   try {
     let txt = await entry(SRC.z, SRC.path);
     const hByRow = new Map(D.rowNums.map((rn,i) => [rn, rh(i)]));
@@ -1408,11 +1461,11 @@ async function exportXlsx(){
                           : await entryBytes(SRC.z, name)});
     const a = el('a');
     a.href = URL.createObjectURL(await zipWrite(out));
-    a.download = SRC.name.replace(/(\.[^.]+)$/, '') + '-已排版.xlsx';
+    a.download = SRC.name.replace(/(\.[^.]+)$/, '') + T('-已排版.xlsx','-laid-out.xlsx');
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   } catch (e){
-    alert('匯出失敗：' + e.message); console.error(e);
+    alert(T('匯出失敗：','Export failed: ') + e.message); console.error(e);
   } finally {
     btn.textContent = old; btn.disabled = false;
   }
@@ -1458,7 +1511,9 @@ function withEdit(c, edited){
   if (String(edited).trim()) o.c = o.c.replace(' emptycell', '');
   return o;
 }
-const ALIGN_TW = {left:'靠左', center:'置中', right:'靠右', distributed:'分散對齊', justify:'左右對齊'};
+const ALIGN_NAMES = {left:['靠左','left'], center:['置中','center'], right:['靠右','right'],
+                     distributed:['分散對齊','distributed'], justify:['左右對齊','justified']};
+const ALIGN_TW = k => ALIGN_NAMES[k] ? T(...ALIGN_NAMES[k]) : k;
 
 function cellEl(tag, c, h, i, side, ci){
   // 整欄對齊一設下去，欄內就一致了，紫底提示收回
@@ -1468,12 +1523,15 @@ function cellEl(tag, c, h, i, side, ci){
   if (c.rs) td.rowSpan = c.rs;
   // 底色是哪來的：滑過去講一句（三種底色都有各自的原因）
   const why = td.className.includes('badfont')
-        ? `${c.ref}：${c.badTip}（淺綠底，不會印出來）`
+        ? T(`${c.ref}：${c.badTip}（淺綠底，不會印出來）`, `${c.ref}: ${c.badTip} (light green, not printed)`)
     : td.className.includes('mixalign')
-        ? `${c.ref}：對齊是「${ALIGN_TW[c.al] || c.al}」，同欄多數是「${ALIGN_TW[c.mixTop] || c.mixTop}」（淺紫底，不會印出來）`
+        ? T(`${c.ref}：對齊是「${ALIGN_TW(c.al)}」，同欄多數是「${ALIGN_TW(c.mixTop)}」（淺紫底，不會印出來）`,
+            `${c.ref}: aligned ${ALIGN_TW(c.al)}, but most of the column is ${ALIGN_TW(c.mixTop)} (light purple, not printed)`)
     : td.className.includes('emptycell')
-        ? `${c.emp}：在表格框線內卻沒填值，可能是漏填（淺橘底，不會印出來）`
-    : c.nf ? '原檔沒設對齊（Excel 的「通用」），現在的靠左／靠右是依內容猜的（紅底，會印出來）' : '';
+        ? T(`${c.emp}：在表格框線內卻沒填值，可能是漏填（淺橘底，不會印出來）`,
+            `${c.emp}: inside the table rules but empty — possibly a missed entry (light orange, not printed)`)
+    : c.nf ? T('原檔沒設對齊（Excel 的「通用」），現在的靠左／靠右是依內容猜的（紅底，會印出來）',
+               'No alignment set in the source (Excel\'s "General"); left / right was guessed from the content (red, does print)') : '';
   if (why) td.title = why;
   const w = el('div', 'cw ' + c.c + (c.v ? ' ' + c.v : ''));
   if (h != null) w.style.height = (h * S.k).toFixed(2) + 'pt';
@@ -1792,15 +1850,16 @@ function render(){
     const used = idx.reduce((s,i) => s + rh(i), 0), cap = capOf(last);
     [L,R].forEach(p => {
       const b = el('div','badge');
-      b.textContent = `累積 ${mmOf(used).toFixed(1)} / ${mmOf(cap).toFixed(1)}mm`
-        + (used > cap ? ` ・超出 ${mmOf(used-cap).toFixed(1)}mm` : ` ・剩 ${mmOf(cap-used).toFixed(1)}mm`);
+      b.textContent = T('累積 ','Used ') + `${mmOf(used).toFixed(1)} / ${mmOf(cap).toFixed(1)}mm`
+        + (used > cap ? T(` ・超出 ${mmOf(used-cap).toFixed(1)}mm`, ` · ${mmOf(used-cap).toFixed(1)}mm over`)
+                      : T(` ・剩 ${mmOf(cap-used).toFixed(1)}mm`, ` · ${mmOf(cap-used).toFixed(1)}mm left`));
       if (used > cap){ b.className = 'badge bad'; p.classList.add('over-cap'); }
       p.appendChild(b);
     });
     guides(sp, L, idx, last);
     if (S.breaks.includes(idx[0])){
       const m = el('div','mark');
-      m.textContent = '⛔ 手動分頁（點掉讓資料往前流）';
+      m.textContent = T('⛔ 手動分頁（點掉讓資料往前流）','⛔ Manual break — click to remove and let the rows flow up');
       m.onclick = () => { S.breaks = S.breaks.filter(v => v !== idx[0]); render(); };
       L.appendChild(m);
     }
@@ -1811,7 +1870,8 @@ function render(){
     if (!badTail(t)) return;
     document.querySelectorAll(`tr[data-i="${t}"]`).forEach(tr => {
       tr.classList.add('orphan');
-      tr.title = '這一列是群組標題，內容在下一頁；要拉到下一頁就點它、按 B';
+      tr.title = T('這一列是群組標題，內容在下一頁；要拉到下一頁就點它、按 B',
+                   'This row is a group heading whose content is on the next page; select it and press B to move it there');
     });
   });
   document.querySelectorAll('.cw').forEach(w => {
@@ -1842,11 +1902,13 @@ function guides(sp, L, idx, last){
     if (tr.offsetHeight < 16 && n !== idx.length - 1) return;
     const lab = el('div','glab');
     lab.style.top = (tr.offsetTop + tr.offsetHeight) + 'px';
-    lab.textContent = mmOf(acc).toFixed(0) + (n === idx.length - 1 ? ' ▏滿' : '');
+    lab.textContent = mmOf(acc).toFixed(0) + (n === idx.length - 1 ? T(' ▏滿',' ▏full') : '');
     if (n === idx.length - 1) lab.classList.add('full');
     if (S.breaks.includes(i + 1)) lab.classList.add('brk');
-    lab.title = `本頁資料列累積 ${mmOf(acc).toFixed(1)}mm / 可放 ${mmOf(cap).toFixed(1)}mm（剩 ${mmOf(cap-acc).toFixed(1)}mm，表頭已扣掉）`
-              + `\n點一下 = ${S.breaks.includes(i+1) ? '取消在這裡停' : '就停在這一列'}`;
+    lab.title = T(`本頁資料列累積 ${mmOf(acc).toFixed(1)}mm / 可放 ${mmOf(cap).toFixed(1)}mm（剩 ${mmOf(cap-acc).toFixed(1)}mm，表頭已扣掉）`,
+                  `Data rows so far ${mmOf(acc).toFixed(1)}mm of ${mmOf(cap).toFixed(1)}mm (${mmOf(cap-acc).toFixed(1)}mm left, header already deducted)`)
+              + T(`\n點一下 = ${S.breaks.includes(i+1) ? '取消在這裡停' : '就停在這一列'}`,
+                  `\nClick = ${S.breaks.includes(i+1) ? 'stop breaking here' : 'break after this row'}`);
     lab.onclick = () => {
       const k = S.breaks.indexOf(i + 1);
       k < 0 ? S.breaks.push(i + 1) : S.breaks.splice(k, 1);
@@ -2026,8 +2088,8 @@ function deleteRow(i){
   store.set(S);
 }
 $('bdel').onclick = () => {
-  if (sel < 0){ alert('請先點選要刪除的資料列'); return; }
-  if (confirm(`刪除第 ${sel + 1} 列？（復原鍵救不回來）`)) deleteRow(sel);
+  if (sel < 0){ alert(T('請先點選要刪除的資料列','Select the data row you want to delete first')); return; }
+  if (confirm(T(`刪除第 ${sel + 1} 列？（復原鍵救不回來）`, `Delete row ${sel + 1}? Undo will not bring it back.`))) deleteRow(sel);
 };
 
 // ---- 欄寬拖曳 ----
@@ -2206,11 +2268,12 @@ $('bfit').onclick = () => { if (sel >= 0){ fit(sel); render(); } };
 $('bfitall').onclick = () => { D.rows.forEach((_,i) => fit(i)); render(); };
 $('bfitpage').onclick = () => {
   const pg = pages().find(idx => idx.includes(sel));
-  if (!pg){ alert('先點選要調整的那一頁裡的任一列'); return; }
+  if (!pg){ alert(T('先點選要調整的那一頁裡的任一列','Click any row on the page you want to adjust first')); return; }
   pg.forEach(i => fit(i)); render();
 };
 $('bauto').onclick = () => {
-  if (confirm('清掉全部 ' + S.breaks.length + ' 個手動分頁點，改成完全照列高流動？')){
+  if (confirm(T(`清掉全部 ${S.breaks.length} 個手動分頁點，改成完全照列高流動？`,
+                `Clear all ${S.breaks.length} manual breaks and let the pages flow purely by row height?`))){
     S.breaks = [];
     S.push = true;              // 按鈕講的就是「照列高自動流動」，順手把開關打開，不然會一個分頁點都不剩
     $('push').checked = true;
@@ -2225,7 +2288,8 @@ $('bfreeze').onclick = () => {
   S.push = false;
   $('push').checked = false;
   render();
-  alert('已插入 ' + S.breaks.length + ' 個手動分頁點，版面定住了。');
+  alert(T(`已插入 ${S.breaks.length} 個手動分頁點，版面定住了。`,
+          `Inserted ${S.breaks.length} manual breaks — the layout is pinned.`));
 };
 $('push').onchange = e => { S.push = e.target.checked; render(); };
 // --- 直接改資料 ---
@@ -2249,7 +2313,7 @@ new ResizeObserver(syncBarH).observe($('bar')); syncBarH();
 const THEME_KEY = 'spread:theme';
 function setTheme(light){
   document.body.classList.toggle('light', light);
-  $('btheme').textContent = light ? '☀ 亮色' : '🌙 深色';
+  $('btheme').textContent = light ? T('☀ 亮色','☀ Light') : T('🌙 深色','🌙 Dark');
   try { localStorage.setItem(THEME_KEY, light ? 'light' : 'dark'); } catch(e){}
 }
 let themeSaved = null;
@@ -2259,7 +2323,7 @@ setTheme(themeSaved ? themeSaved === 'light'
 $('btheme').onclick = () => setTheme(!document.body.classList.contains('light'));
 $('sideTog').onclick = () => {
   document.body.classList.toggle('sideOff');
-  $('sideTog').textContent = document.body.classList.contains('sideOff') ? '▶ 設定' : '◀ 設定';
+  $('sideTog').textContent = document.body.classList.contains('sideOff') ? T('▶ 設定','▶ Settings') : T('◀ 設定','◀ Settings');
   applyViewMode();
 };
 
@@ -2381,8 +2445,9 @@ const numText = t => {
 const numOf = c => numText(txtOf(c));
 
 function audit(){
-  if (!D || !D.rows.length){ alert('先載入檔案'); return; }
-  if (!D.foot.length){ alert('找不到總計／合計列，無法比對。\n可用「表頭到 N 列」與「範圍」確認表格結構。'); return; }
+  if (!D || !D.rows.length){ alert(T('先載入檔案','Load a file first')); return; }
+  if (!D.foot.length){ alert(T('找不到總計／合計列，無法比對。\n可用「表頭到 N 列」與「範圍」確認表格結構。',
+    'No grand-total row found, so there is nothing to check against.\nUse "Header ends at row N" and "Range" to confirm the table structure.')); return; }
 
   // 一定要走 S.edits，否則使用者在畫面上改過的數字驗算會看不到（讀 c.t 只是原檔內容）。
   // key 的規則跟 render／匯出一致：資料列是「列索引|side|欄索引」，合計備註列是「f<k>|side|欄索引」。
@@ -2405,7 +2470,7 @@ function audit(){
     if (/[%％]/.test(txtOf(c))) for (let k = 0; k < (c.cs || 1); k++) pct.add(c.col + k);
   }));
   const cols = cellsOf(total).filter(o => numb(o) !== null && !pct.has(o.col)).map(o => o.col);
-  if (!cols.length){ alert('總計列裡找不到可比對的金額欄。'); return; }
+  if (!cols.length){ alert(T('總計列裡找不到可比對的金額欄。','No amount columns to compare were found in the totals row.')); return; }
 
   const at = (row, col) => cellsOf(row).find(o => o.col === col);
   const val = (row, col) => { const o = at(row, col); return o ? (numb(o) || 0) : 0; };
@@ -2422,12 +2487,13 @@ function audit(){
     return {row: r, label: lc ? text(lc).replace(/[\s　]/g, '') : '', key: lc ? (lc.col * 1000 + (lc.c.ind || 0)) : null};   // 1000 進位，縮排再深也不會跟下一欄相撞
   });
   const keys = [...new Set(info.filter(i => i.key != null).map(i => i.key))].sort((a,b) => a-b);
-  if (!keys.length){ alert('找不到可判斷階層的資料列。'); return; }
+  if (!keys.length){ alert(T('找不到可判斷階層的資料列。','No data rows with a recognizable hierarchy were found.')); return; }
   info.forEach(i => i.lv = i.key == null ? keys.length - 1 : keys.indexOf(i.key));
 
   const fmt = n => (Math.round(n * 100) / 100).toLocaleString();
   const out = []; let fail = 0, done = 0;
-  const NAME = ['主管', '基金（公司）', '大分類', '子分類', '細項'];
+  const NAME = T(['主管', '基金（公司）', '大分類', '子分類', '細項'],
+                 ['agency', 'fund (company)', 'major category', 'subcategory', 'line item']);
 
   // 總計 = Σ 第 0 層
   const lv0 = info.filter(i => i.lv === 0).map(i => i.row);
@@ -2436,9 +2502,11 @@ function audit(){
     done++;
     const d = sum(lv0, col) - val(total, col);
     if (Math.abs(d) > 0.5){ fail++; bad0++;
-      out.push(`✗ 總計 ${colName(col)} 欄：各${NAME[0]}加總 ${fmt(sum(lv0,col))}、總計列 ${fmt(val(total,col))}，差 ${fmt(d)}`); }
+      out.push(T(`✗ 總計 ${colName(col)} 欄：各${NAME[0]}加總 ${fmt(sum(lv0,col))}、總計列 ${fmt(val(total,col))}，差 ${fmt(d)}`,
+                 `✗ Grand total, column ${colName(col)}: ${NAME[0]} rows add up to ${fmt(sum(lv0,col))}, total row says ${fmt(val(total,col))}, off by ${fmt(d)}`)); }
   });
-  if (!bad0) out.push(`✓ 總計 = ${lv0.length} 個${NAME[0]}之和（${cols.length} 個金額欄全部相符）`);
+  if (!bad0) out.push(T(`✓ 總計 = ${lv0.length} 個${NAME[0]}之和（${cols.length} 個金額欄全部相符）`,
+                        `✓ Grand total = sum of ${lv0.length} ${NAME[0]} rows (all ${cols.length} amount columns match)`));
 
   // 每一層 = Σ 下一層
   for (let L = 0; L < keys.length - 1; L++){
@@ -2454,15 +2522,18 @@ function audit(){
         const d = sum(kids, col) - val(p.it.row, col);
         if (Math.abs(d) > 0.5){
           bad++; fail++;
-          if (bad <= 4) out.push(`✗ 「${p.it.label}」${colName(col)} 欄：下層加總 ${fmt(sum(kids,col))}、本列 ${fmt(val(p.it.row,col))}，差 ${fmt(d)}`);
+          if (bad <= 4) out.push(T(`✗ 「${p.it.label}」${colName(col)} 欄：下層加總 ${fmt(sum(kids,col))}、本列 ${fmt(val(p.it.row,col))}，差 ${fmt(d)}`,
+            `✗ "${p.it.label}", column ${colName(col)}: children add up to ${fmt(sum(kids,col))}, this row says ${fmt(val(p.it.row,col))}, off by ${fmt(d)}`));
         }
       });
     });
-    const nm = `${NAME[L] || ('第'+L+'層')} = Σ ${NAME[L+1] || ('第'+(L+1)+'層')}`;
-    if (checked && !bad) out.push(`✓ ${nm}（${par.length - nokid} 組、${checked} 個欄位全部相符）`
-      + (nokid ? `，另 ${nokid} 組底下沒有下一層、未檢查` : ''));
-    else if (bad > 4) out.push(`  …「${nm}」另有 ${bad - 4} 項未列出`);
-    else if (!checked) out.push(`－ ${nm}：找不到可比對的層級`);
+    const lvl = n => NAME[n] || T('第'+n+'層', 'level ' + n);
+    const nm = `${lvl(L)} = Σ ${lvl(L+1)}`;
+    if (checked && !bad) out.push(T(`✓ ${nm}（${par.length - nokid} 組、${checked} 個欄位全部相符）`,
+                                    `✓ ${nm} (${par.length - nokid} groups, ${checked} cells, all match)`)
+      + (nokid ? T(`，另 ${nokid} 組底下沒有下一層、未檢查`, ` — ${nokid} more groups have no child level and were not checked`) : ''));
+    else if (bad > 4) out.push(T(`  …「${nm}」另有 ${bad - 4} 項未列出`, `  …${bad - 4} more "${nm}" mismatches not listed`));
+    else if (!checked) out.push(T(`－ ${nm}：找不到可比對的層級`, `– ${nm}: no comparable level found`));
   }
 
   // ---- 交叉檢查：比照原檔 sumif 檢誤的作法，不看階層、改用標籤字樣加總。
@@ -2470,31 +2541,35 @@ function audit(){
   // 只留在兩種表別都成立的兩條，「Σ含基金」「分年性+一次性」等只對單一表別成立的不納入。
   const hit = re => info.filter(i => re.test(i.label));
   const cross = [
-    ['各「◯◯主管」加總', [/主管$/]],
-    ['計畫別合計（一般建築及設備＋繼續＋新興）', [/一般建築及設備計畫$/, /繼續計畫$/, /新興計畫$/]]
+    [T('各「◯◯主管」加總','Sum of the agency rows'), [/主管$/]],
+    [T('計畫別合計（一般建築及設備＋繼續＋新興）','Sum by project type (general construction & equipment + continuing + new)'),
+     [/一般建築及設備計畫$/, /繼續計畫$/, /新興計畫$/]]
   ];
   cross.forEach(([nm, res]) => {
     const rs = res.flatMap(re => hit(re));
-    if (!rs.length){ out.push(`－ ${nm}：找不到符合的列，未檢查`); return; }
+    if (!rs.length){ out.push(T(`－ ${nm}：找不到符合的列，未檢查`, `– ${nm}: no matching rows, not checked`)); return; }
     let bad = 0;
     cols.forEach(col => {
       done++;
       const d = sum(rs.map(i => i.row), col) - val(total, col);
       if (Math.abs(d) > 0.5){
         bad++; fail++;
-        if (bad <= 3) out.push(`✗ ${nm} ${colName(col)} 欄：加總 ${fmt(sum(rs.map(i=>i.row),col))}、總計列 ${fmt(val(total,col))}，差 ${fmt(d)}`);
+        if (bad <= 3) out.push(T(`✗ ${nm} ${colName(col)} 欄：加總 ${fmt(sum(rs.map(i=>i.row),col))}、總計列 ${fmt(val(total,col))}，差 ${fmt(d)}`,
+          `✗ ${nm}, column ${colName(col)}: adds up to ${fmt(sum(rs.map(i=>i.row),col))}, total row says ${fmt(val(total,col))}, off by ${fmt(d)}`));
       }
     });
-    if (!bad) out.push(`✓ ${nm} = 總計（${rs.length} 列、${cols.length} 個金額欄全部相符）`);
+    if (!bad) out.push(T(`✓ ${nm} = 總計（${rs.length} 列、${cols.length} 個金額欄全部相符）`,
+                         `✓ ${nm} = grand total (${rs.length} rows, all ${cols.length} amount columns match)`));
   });
 
-  const title = fail ? `⚠ ${fail} 項不符（共檢查 ${done} 項）` : `✅ 全部通過（共檢查 ${done} 項）`;
+  const title = fail ? T(`⚠ ${fail} 項不符（共檢查 ${done} 項）`, `⚠ ${fail} mismatches out of ${done} checks`)
+                     : T(`✅ 全部通過（共檢查 ${done} 項）`, `✅ All ${done} checks passed`);
   const html = out.map(s => {
     const cls = s.startsWith('✗') ? 'bad' : s.startsWith('✓') ? 'good' : '';
     return `<div class="${cls}">${esc(s)}</div>`;
   }).join('')
-    + `<div class="muted">比對欄位：${cols.map(colName).join('、')}`
-    + (pct.size ? `<br>已排除百分比欄：${[...pct].sort((a,b)=>a-b).map(colName).join('、')}` : '')
+    + `<div class="muted">` + T('比對欄位：','Columns compared: ') + cols.map(colName).join(T('、',', '))
+    + (pct.size ? T('<br>已排除百分比欄：','<br>Percentage columns skipped: ') + [...pct].sort((a,b)=>a-b).map(colName).join(T('、',', ')) : '')
     + `</div>`;
   showPanel(title, html, {html:true});
 }
@@ -2503,7 +2578,7 @@ function audit(){
 // 這裡讀的是 Excel 存檔時算好的快取值——本工具不重算公式，改過內容要回 Excel 重算。
 $('bcheck').onclick = audit;
 $('bcheck2').onclick = () => {
-  if (!RAW){ alert('先載入檔案'); return; }
+  if (!RAW){ alert(T('先載入檔案','Load a file first')); return; }
   const textOf = ref => {
     const cv = RAW.cells[ref];
     if (!cv) return '';
@@ -2523,16 +2598,20 @@ $('bcheck2').onclick = () => {
     checked++;
     const off = refs.filter(ref => { const v = textOf(ref); return v !== '' && !isNaN(v) && +v !== 0; })
                     .map(ref => `${ref}=${(+textOf(ref)).toLocaleString()}`);
-    if (off.length){ bad++; lines.push(`✗ 第 ${r} 列「${label}」 → ${off.join('、')}`); }
-    else lines.push(`✓ 第 ${r} 列「${label}」 全部為 0`);
+    if (off.length){ bad++; lines.push(T(`✗ 第 ${r} 列「${label}」 → ${off.join('、')}`,
+                                          `✗ Row ${r} "${label}" → ${off.join(', ')}`)); }
+    else lines.push(T(`✓ 第 ${r} 列「${label}」 全部為 0`, `✓ Row ${r} "${label}" — all zero`));
   });
 
-  if (!checked){ alert('原檔裡找不到標籤含「差異」的驗算列。\n（這類檢誤區通常放在列印範圍下方）'); return; }
-  const title = bad ? `⚠ ${bad} / ${checked} 項不符` : `✅ ${checked} 項全部通過`;
+  if (!checked){ alert(T('原檔裡找不到標籤含「差異」的驗算列。\n（這類檢誤區通常放在列印範圍下方）',
+    'No check rows labelled with 差異 (variance) were found in the source file.\n(That block usually sits below the print area.)')); return; }
+  const title = bad ? T(`⚠ ${bad} / ${checked} 項不符`, `⚠ ${bad} of ${checked} checks failed`)
+                    : T(`✅ ${checked} 項全部通過`, `✅ All ${checked} checks passed`);
   const html = lines.map(s => {
     const cls = s.startsWith('✗') ? 'bad' : s.startsWith('✓') ? 'good' : '';
     return `<div class="${cls}">${esc(s)}</div>`;
-  }).join('') + `<div class="muted">註：顯示的是 Excel 存檔時算好的值，本工具不重算公式。</div>`;
+  }).join('') + `<div class="muted">` + T('註：顯示的是 Excel 存檔時算好的值，本工具不重算公式。',
+    'Note: these are the values Excel cached on save — this tool does not recalculate formulas.') + `</div>`;
   showPanel(title, html, {html:true});
 };
 
@@ -2540,7 +2619,7 @@ $('bxlsx').onclick = exportXlsx;
 $('bhtml').onclick = htmlLayout;
 $('beven').onclick = () => evenOut(false);
 $('bevenall').onclick = () => evenOut(true);
-$('breset').onclick = () => { if (confirm('回到 Excel 原始列高與分頁？')){ resetToDefault(); } };
+$('breset').onclick = () => { if (confirm(T('回到 Excel 原始列高與分頁？','Go back to Excel\'s original row heights and page breaks?'))){ resetToDefault(); } };
 $('bsave').onclick = () => {
   const a = el('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(S)], {type:'application/json'}));
@@ -2550,17 +2629,21 @@ $('bload').onclick = () => {
   const f = el('input'); f.type = 'file'; f.accept = '.json';
   f.onchange = () => f.files[0].text().then(t => {
     let v;
-    try { v = JSON.parse(t); } catch (e){ alert('這不是有效的設定檔（JSON 解析失敗）'); return; }
+    try { v = JSON.parse(t); } catch (e){ alert(T('這不是有效的設定檔（JSON 解析失敗）','Not a valid settings file (the JSON could not be parsed)')); return; }
     const next = Object.assign({}, dflt, v);
 
     // S.h 是「第 n 個資料列的高度」，靠陣列位置對應。設定檔如果是從別的檔案、
     // 別的列印範圍或別的表頭列數存下來的，資料列數就不一樣，直接套上去會整份錯位。
     if (!Array.isArray(next.h) || next.h.length !== D.rows.length){
-      const had = Array.isArray(v.h) ? v.h.length : '未知';
-      if (!confirm(`設定檔記錄了 ${had} 個資料列，目前的表格有 ${D.rows.length} 個。\n\n`
+      const had = Array.isArray(v.h) ? v.h.length : T('未知','an unknown number of');
+      if (!confirm(T(`設定檔記錄了 ${had} 個資料列，目前的表格有 ${D.rows.length} 個。\n\n`
                  + '列高與分頁會對不起來（通常是範圍或「表頭到 N 列」跟當初不同）。\n\n'
                  + '按「確定」＝放棄設定檔裡的列高、分頁與編輯，只套用字型、縮放等全域設定；\n'
-                 + '按「取消」＝不匯入。')) return;
+                 + '按「取消」＝不匯入。',
+                 `The settings file records ${had} data rows; this table has ${D.rows.length}.\n\n`
+                 + 'Row heights and page breaks would not line up — usually the range or "Header ends at row N" differs from when it was saved.\n\n'
+                 + 'OK = discard the row heights, breaks and cell edits in the file and apply only the global settings (font, scaling, and so on).\n'
+                 + 'Cancel = do not import.'))) return;
       next.h = dflt.h.slice();
       next.breaks = dflt.breaks.slice();
       next.edits = {};
@@ -2588,8 +2671,9 @@ $('bload').onclick = () => {
 $('bprint').onclick = () => {
   // 空格是載入時算的，這裡看現在畫面上還剩幾格沒填（編輯補上的會消失）
   const left = document.querySelectorAll('td.emptycell').length;
-  if (left && !confirm(`還有 ${left} 格在表格框線內沒有值（畫面上標淺橘底）。\n\n橘底不會印出來。要繼續列印嗎？`)) return;
-  const ok = confirm(
+  if (left && !confirm(T(`還有 ${left} 格在表格框線內沒有值（畫面上標淺橘底）。\n\n橘底不會印出來。要繼續列印嗎？`,
+    `${left} cells inside the table rules are still empty (flagged light orange on screen).\n\nThe orange is not printed. Print anyway?`))) return;
+  const ok = confirm(T(
     '列印視窗開啟後，「目的地 / Destination」請選：\n\n' +
     '        ✅  另存為 PDF（Save as PDF）\n\n' +
     '不要選 Right PDF、Adobe PDF 或任何印表機名稱 —— 那些會把整頁轉成圖片，' +
@@ -2598,7 +2682,16 @@ $('bprint').onclick = () => {
     '另外：PDF 上若出現不該有的色塊、圖示、邊框或浮水印（常固定在每頁同一角落），\n' +
     '幾乎都是 Chrome 擴充功能（如 PDF 工具列、螢幕截圖、翻譯、AdBlock 等）疊在頁面上被一起印進去，\n' +
     '不是這份版面的問題。改用「無痕視窗」（不載入擴充功能）重印一次就會消失。\n\n' +
-    '確定要開啟列印視窗嗎？');
+    '確定要開啟列印視窗嗎？',
+    'When the print dialog opens, set Destination to:\n\n' +
+    '        ✅  Save as PDF\n\n' +
+    'Do not pick Right PDF, Adobe PDF or any printer name — those rasterize the page. ' +
+    'The PDF then has no text in it and Acrobat will say the page contains only a scanned image.\n\n' +
+    'For a PDF with editable text you can also press Export xlsx and save to PDF from Excel.\n\n' +
+    'Also: stray color blocks, icons, borders or watermarks in the PDF — usually in the same corner of every page —\n' +
+    'are almost always a Chrome extension (PDF toolbar, screenshot, translate, ad blocker) painting over the page and getting printed with it.\n' +
+    'They are not part of this layout. Print once from an incognito window, which loads no extensions, and they disappear.\n\n' +
+    'Open the print dialog?'));
   if (!ok) return;
   // 編輯模式的虛線框會印出來，列印前自動關掉（印完不還原，要改再自己勾回來）
   if (S.editing){ $('edit').checked = false; $('edit').onchange({target: $('edit')}); }
@@ -2677,7 +2770,7 @@ function applyViewMode(){
 function updateViewBtn(){
   const b = $('bview');
   const mode = S.viewMode || 'fitH';
-  b.textContent = mode === 'fitH' ? '滿高' : mode === 'fitW' ? '滿寬' : '自訂';
+  b.textContent = mode === 'fitH' ? T('滿高','Fit height') : mode === 'fitW' ? T('滿寬','Fit width') : T('自訂','Custom');
   b.classList.toggle('active', mode !== 'manual');
 }
 $('bview').onclick = () => {
@@ -2688,6 +2781,14 @@ $('bview').onclick = () => {
 window.addEventListener('resize', () => {
   if ((S.viewMode || 'fitH') !== 'manual') applyViewMode();
 });
+
+$('blang').onclick = $('blang2').onclick = ev => {
+  ev.stopPropagation();          // 首頁那顆在拖曳區裡，點它不要順便開檔案對話框
+  LANG = LANG === 'en' ? 'zh' : 'en';
+  try { localStorage.setItem(LANG_KEY, LANG); } catch(e){}
+  applyLang(); dynLabels();
+};
+applyLang(); dynLabels();
 </script>
 
 <!-- Google tag (gtag.js) -->

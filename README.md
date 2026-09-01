@@ -1,5 +1,7 @@
 # xls2spread
 
+*中文 · [English](README.en.md)*
+
 把「固定資產建設改良擴充計畫及成本效益分析表」這類 Excel 轉成**天地線固定的對開表**，
 逐列調好列高後直接列印成 PDF，或寫回 xlsx 回 Excel 微調。
 
