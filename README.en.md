@@ -169,6 +169,8 @@ automatically.
 | More air between rows | The "Row spacing" slider, applied to every page |
 | Document-wide | Scale, row spacing, line height, font size, rule-to-rule height, last-page bottom rule |
 | Back to Excel | "Export xlsx" writes the row heights and breaks into the original file |
+| Forgot how something works | "How to use" on the toolbar opens a cheat sheet you can copy |
+| Want to take a change back | ⌘Z / Ctrl+Z to undo, ⇧⌘Z to redo; deleting a row and dragging to reorder are not undoable |
 | Saving | Automatic, in the browser; "Export settings" saves a json you can carry around |
 
 The same row is always the same height on both pages (one value applied to both halves),
