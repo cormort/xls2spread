@@ -599,7 +599,15 @@ function fmtNum(v, nf){
     ? n.toLocaleString('en-US', {minimumFractionDigits: dec, maximumFractionDigits: dec})
     : n.toFixed(dec);
   if (pct) s += '%';
-  if (si === 1) s = body.includes('(') ? '(' + s + ')' : body.includes('-') ? '-' + s : s;
+  // 負號／括號由格式自己的字面決定（[Red]#,##0 就真的不顯示負號），
+  // 但判斷要用「還沒清掉跳脫字元與引號」的字串：預算表常用的 \-* #,##0_- 與
+  // [Red]\(#,##0\) 裡，負號與括號都是字面（\- \(），清掉之後就只剩 * #,##0，
+  // 用 body 判斷會讓負數整個失去正負號（-1,234 印成 1,234）。只去掉 _x 留白與顏色。
+  if (si === 1){
+    const sign = secs[si].replace(/_./g, '').replace(/\[[^\]]*\]/g, '');
+    if (sign.includes('(')) s = '(' + s + ')';
+    else if (sign.includes('-')) s = '-' + s;
+  }
   return s;
 }
 
