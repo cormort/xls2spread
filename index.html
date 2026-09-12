@@ -499,7 +499,9 @@ async function unzip(buf){
   if (eo < 0) throw new Error(T('這不是有效的 xlsx（找不到 zip 結構）','Not a valid xlsx (no zip structure found)'));
   const n = dv.getUint16(eo + 10, true);
   let p = dv.getUint32(eo + 16, true);
-  const files = {};
+  // 索引是檔案裡的字串，用無原型物件：項目剛好叫 __proto__ 時，
+  // 一般物件會把那次指派丟掉，之後讀到的是 Object.prototype，匯出就整份壞掉
+  const files = Object.create(null);
   for (let i = 0; i < n; i++){
     if (dv.getUint32(p, true) !== 0x02014b50) throw new Error(T('zip 目錄壞掉','The zip directory is corrupt'));
     const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true);
@@ -543,13 +545,15 @@ async function zipWrite(entries){
       new Blob([e.bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer());
     const crc = crc32(e.bytes);
     const lh = new DataView(new ArrayBuffer(30));
-    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(8, 8, true);
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true);
+    lh.setUint16(6, 0x0800, true);   // 檔名是 UTF-8（bit 11）；不宣告的話非 ASCII 的項目名會被當成 CP437
+    lh.setUint16(8, 8, true);
     lh.setUint32(14, crc, true); lh.setUint32(18, comp.length, true); lh.setUint32(22, e.bytes.length, true);
     lh.setUint16(26, nameB.length, true);
     body.push(new Uint8Array(lh.buffer), nameB, comp);
     const cd = new DataView(new ArrayBuffer(46));
     cd.setUint32(0, 0x02014b50, true); cd.setUint16(4, 20, true); cd.setUint16(6, 20, true);
-    cd.setUint16(10, 8, true); cd.setUint32(16, crc, true);
+    cd.setUint16(8, 0x0800, true); cd.setUint16(10, 8, true); cd.setUint32(16, crc, true);
     cd.setUint32(20, comp.length, true); cd.setUint32(24, e.bytes.length, true);
     cd.setUint16(28, nameB.length, true); cd.setUint32(42, off, true);
     cdir.push(new Uint8Array(cd.buffer), nameB);
@@ -576,17 +580,27 @@ function fmtNum(v, nf){
   const secs = (nf || '').split(';');
   if (v === 0 && secs.length >= 3 && secs[2].includes('-')) return '-';
   if (!nf || nf === 'General' || nf === '@') return String(Math.round(v * 1e10) / 1e10);
+  // 格式碼分段：1 段全用；2 段＝正（含零）、負；3 段＝正、負、零。
+  // 只讀第一段的話，預算表常用的 #,##0_);(#,##0)（內建 37~40）負數會印成 -1,234，
+  // 原檔是 (1,234)，對帳的人會以為數字不一樣。
+  const si = v < 0 && secs.length >= 2 ? 1 : v === 0 && secs.length >= 3 ? 2 : 0;
   // 小數位數要從格式碼本身算（0.0 → 1 位、#,##0.00 → 2 位、_-* #,##0_- → 0 位）。
   // 只看有沒有 "0.00" 的話，0.0 這種格式會被捨成整數，數字就錯了。
-  const body = secs[0].replace(/"[^"]*"/g, '').replace(/\\./g, '').replace(/\[[^\]]*\]/g, '');
+  // `_)` 是佔一個字寬的留白，不是括號，要跟顏色（[Red]）與跳脫字元一起清掉，
+  // 否則正數段的 #,##0_) 會被誤認成「要加括號」。
+  const body = secs[si].replace(/"[^"]*"/g, '').replace(/\\./g, '').replace(/\[[^\]]*\]/g, '').replace(/_./g, '');
   const dot = body.lastIndexOf('.');
   const dec = dot < 0 ? 0 : (body.slice(dot + 1).match(/[0#?]/g) || []).length;
   const pct = body.includes('%');           // 百分比格式：原檔存的是比率，要乘 100 再補 %
-  const n = pct ? v * 100 : v;
-  const s = body.includes(',')
+  // 負數段是拿絕對值去套的，負號／括號只能由格式自己的字面決定（[Red]#,##0 就真的不顯示負號）
+  const mag = si === 1 ? Math.abs(v) : v;
+  const n = pct ? mag * 100 : mag;
+  let s = body.includes(',')
     ? n.toLocaleString('en-US', {minimumFractionDigits: dec, maximumFractionDigits: dec})
     : n.toFixed(dec);
-  return pct ? s + '%' : s;
+  if (pct) s += '%';
+  if (si === 1) s = body.includes('(') ? '(' + s + ')' : body.includes('-') ? '-' + s : s;
+  return s;
 }
 
 // 這幾張表都用檔案的內容當索引（框線樣式名稱、字型名稱），一律用無原型物件：
@@ -1106,7 +1120,7 @@ function showPanel(title, body, opts = {}){
   const hd = el('div'); hd.className = 'panel-title';
   const hb = el('b'); hb.textContent = title;
   const x = el('button'); x.className = 'panel-x'; x.textContent = '✕';
-  x.onclick = () => ov.remove();
+  x.onclick = () => close();
   hd.append(hb, x);
   const bd = el('div'); bd.className = 'panel-body';
   if (opts.html) bd.innerHTML = body; else bd.textContent = body;
@@ -1125,14 +1139,16 @@ function showPanel(title, body, opts = {}){
       ta.remove(); done();
     }
   };
-  const ok = el('button'); ok.textContent = T('關閉','Close'); ok.onclick = () => ov.remove();
+  const ok = el('button'); ok.textContent = T('關閉','Close'); ok.onclick = () => close();
   ft.append(cp, ok);
   box.append(hd, bd, ft);
   ov.appendChild(box);
   document.body.appendChild(ov);
-  ov.addEventListener('mousedown', e => { if (e.target === ov) ov.remove(); });
-  const esc = e => { if (e.key === 'Escape'){ ov.remove(); document.removeEventListener('keydown', esc); } };
-  document.addEventListener('keydown', esc);
+  ov.addEventListener('mousedown', e => { if (e.target === ov) close(); });
+  // 不管從哪個出口關掉，都要把 Escape 監聽器一起拔掉，否則開幾次面板就疊幾個
+  function close(){ ov.remove(); document.removeEventListener('keydown', onEsc); }
+  function onEsc(e){ if (e.key === 'Escape') close(); }
+  document.addEventListener('keydown', onEsc);
   return ov;
 }
 function showNotice(html, auto){
@@ -1412,8 +1428,8 @@ function multiLineRows(){
 // 兩段寫在一起（拿舊分頁直接分空白）的話，分配的量是照舊頁面算的，
 // 實際重排後當然填不滿——本檔實測：11 組會多印成 14 組，而且再按一次還會變。
 function evenOut(all){
-  const pick = list => (all ? list.map((idx,n) => [idx, n === list.length-1])
-                            : list.map((idx,n) => [idx, n === list.length-1]).filter(([idx]) => idx.includes(sel)));
+  const pick = list => list.map((idx,n) => [idx, n === list.length-1])
+                           .filter(([idx]) => all || idx.includes(sel));
   const targets = pick(pages());
   if (!targets.length){ alert(T('先點選要調整的那一頁裡的任一列','Click any row on the page you want to adjust first')); return; }
   const multi = multiLineRows();
@@ -2089,7 +2105,9 @@ function render(){
     restoring = false; footFitting = false;
     $('footH').value = footHt(+$('footSel').value || 0);
   }
-  store.set(S);
+  // fitHead／fitFoot 觸發的那幾次重畫都是同一個動作的一部分（restoring），
+  // 每次都寫 localStorage 等於一個動作存三次，存最後那一次就夠
+  if (!restoring) store.set(S);
 }
 
 // 左側標尺：每列標出本頁資料列到這裡的累積高度，點一下 = 在這一列之後停。
@@ -2161,7 +2179,11 @@ function updateBtnStates(){
     });
   });
 }
-$('rh').onchange = e => { if (sel < 0) return; S.h[sel] = Math.max(4, +e.target.value); applyH(sel); render(); };
+$('rh').onchange = e => { if (sel < 0) return;
+  // 清空或打了非數字時 +value 是 NaN，Math.max(4, NaN) 還是 NaN，列高一變 NaN 整份版面就算不出來
+  const v = parseFloat(e.target.value);
+  if (!isFinite(v)){ e.target.value = S.h[sel]; return; }
+  S.h[sel] = Math.max(4, v); applyH(sel); render(); };
 
 // 量「這幾列的文字實際需要多高」。一次把要量的格子全部放開高度 → 一次全部量完 → 一次全部還原，
 // 中間不穿插任何寫入，瀏覽器只要重排一次。原本一列一列「寫→讀→寫」會讓每一格都觸發一次重排，
@@ -2312,7 +2334,7 @@ function findColEdge(e){
   let cumX = tr.left;
   for (let i = 0; i < widths.length - 1; i++){
     cumX += widths[i] / 100 * tr.width;
-    if (Math.abs(e.clientX - cumX) < 4 * S.zoom)
+    if (Math.abs(e.clientX - cumX) < 4)   // 螢幕像素固定 4px：乘上 S.zoom 會讓縮小檢視時幾乎抓不到
       return {side, col: i, tableW: tr.width};
   }
   return null;
@@ -2365,7 +2387,7 @@ doc.addEventListener('pointermove', e => {
   const ce = findColEdge(e);
   if (ce){ doc.style.cursor = 'col-resize'; return; }
   const tr = e.target.closest('tr[data-i]');
-  doc.style.cursor = tr && (tr.getBoundingClientRect().bottom - e.clientY) < 5 * S.zoom ? 'row-resize' : '';
+  doc.style.cursor = tr && (tr.getBoundingClientRect().bottom - e.clientY) < 5 ? 'row-resize' : '';
 });
 
 // 跨頁拖曳目標偵測：即使拖到目標頁的表頭或頁尾填空區，也能精確識別
@@ -2406,7 +2428,7 @@ doc.addEventListener('pointerdown', e => {
   }
   const tr = e.target.closest('tr[data-i]'); if (!tr) return;
   const i = +tr.dataset.i; select(i);
-  if ((tr.getBoundingClientRect().bottom - e.clientY) < 5 * S.zoom){
+  if ((tr.getBoundingClientRect().bottom - e.clientY) < 5){
     drag = {i, y: e.clientY, h0: S.h[i]};
     e.preventDefault(); doc.setPointerCapture(e.pointerId);
   } else if (!S.editing){
@@ -2860,6 +2882,7 @@ $('bsave').onclick = () => {
   const a = el('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(S)], {type:'application/json'}));
   a.download = D.name + '.layout.json'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 };
 $('bload').onclick = () => {
   const f = el('input'); f.type = 'file'; f.accept = '.json';
@@ -3015,7 +3038,7 @@ $('bview').onclick = () => {
   applyViewMode(); updateViewBtn(); store.set(S);
 };
 window.addEventListener('resize', () => {
-  if ((S.viewMode || 'fitH') !== 'manual') applyViewMode();
+  if (S && (S.viewMode || 'fitH') !== 'manual') applyViewMode();
 });
 
 $('blang').onclick = $('blang2').onclick = ev => {
