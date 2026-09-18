@@ -1418,9 +1418,12 @@ function noteParaPlan(k){
   };
   const L = pick('l'), R = pick('r');
   if (L === undefined || R === undefined) return null;
+  // 本文格右邊的格子是不是空的：是的話原檔是靠「文字往右邊空的格子溢出」顯示的
+  //（Excel 沒合併、也沒設自動換行時就是這樣），可用寬度算到半頁右緣，不是那一欄的寬度。
+  const canSpill = (side, ci) => !(D.foot[k][side] || []).slice(ci + 1).some(c => plainOf(c.t));
   const plan = (!L.t.trim() || !R.t.trim() || NEW_ITEM.test(R.t))
-    ? { mode: 'split', li: L.ci, ri: R.ci, l: L.t, r: R.t }
-    : { mode: 'flow', li: L.ci, ri: R.ci, text: L.t + R.t };
+    ? { mode: 'split', li: L.ci, ri: R.ci, l: L.t, r: R.t, sl: canSpill('l', L.ci), sr: canSpill('r', R.ci) }
+    : { mode: 'flow', li: L.ci, ri: R.ci, text: L.t + R.t, sl: canSpill('l', L.ci), sr: canSpill('r', R.ci) };
   S.notePlan[k] = plan;
   return plan;
 }
@@ -1468,9 +1471,19 @@ function reflowFootNotes(opts){
     w.appendChild(s);
     return t => { s.textContent = t; return s.getBoundingClientRect().width / z; };
   };
-  const availOf = w => {
+  // 這一格可以排多寬。spill＝原檔沒合併、右邊的格子又是空的（Excel 是讓文字往右邊溢出顯示的，
+  // 例如最後一列備註），這時可以用到半頁右緣；只算那一欄的寬度會把字折成一堆窄行。
+  const availOf = (w, spill) => {
     const cs = getComputedStyle(w);
-    return Math.max(8, w.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0));
+    const pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+    if (!spill) return Math.max(8, w.clientWidth - pad);
+    const td = w.parentElement, tbl = td.closest('table');
+    if (!tbl) return Math.max(8, w.clientWidth - pad);
+    const tcs = getComputedStyle(td);
+    const z = S.zoom || 1;
+    const vis = (tbl.getBoundingClientRect().right
+                 - (td.getBoundingClientRect().left + (parseFloat(tcs.paddingLeft) || 0))) / z;
+    return Math.max(8, vis - pad);
   };
   const rows = []; let skipped = 0;
   D.foot.forEach((row, k) => {
@@ -1480,7 +1493,7 @@ function reflowFootNotes(opts){
     const wl = divOf(k, 'l', plan.li), wr = divOf(k, 'r', plan.ri);
     if (!wl || !wr){ skipped++; return; }
     const ml = measOf(wl), mr = measOf(wr);
-    const aw = availOf(wl), bw = availOf(wr);
+    const aw = availOf(wl, plan.sl), bw = availOf(wr, plan.sr);
     let newL, newR;
     if (plan.mode === 'flow'){
       const { L, R } = wrapAcross(plan.text, aw, bw, ml, mr);   // 左右接成一段
@@ -3259,6 +3272,8 @@ function bind(){
   $('hdrLast').value = D.hdrLast;
   $('parea').value = D.area;
   if (D.foot.length > 1){
+    // 計畫的欄位改過（這一版多了溢出的判斷）就整批重建，別沿用舊的形狀
+    if (S.notePlanV !== 2){ S.notePlan = null; S.notePlanV = 2; }
     S.notePlan || (S.notePlan = {});
     D.foot.forEach((_, k) => { if (k) noteParaPlan(k); });   // 段落本文先建好，render 途中才不會改到 S
   }
