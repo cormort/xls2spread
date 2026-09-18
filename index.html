@@ -1526,22 +1526,26 @@ function reflowFootNotes(opts){
     k = j - 1;
   }
   let carry = null;   // 目前這組還沒排完的字 { text, indent, last }
+  const gone = {};    // 整組排完後沒分到字的列：高度收成 0，匯出設成隱藏
   D.foot.forEach((row, k) => {
     if (k === 0) return;                      // k=0 是合計列，不動
     const plan = noteParaPlan(k);
     if (!plan){ skipped++; return; }
     const wl = divOf(k, 'l', plan.li), wr = divOf(k, 'r', plan.ri);
     if (!wl || !wr){ skipped++; return; }
-    const ml = measOf(wl), mr = measOf(wr);
-    const aw = availOf(wl, plan.sl), bw = availOf(wr, plan.sr);
+    let ml = measOf(wl), mr = measOf(wr);
+    let aw = availOf(wl, plan.sl), bw = availOf(wr, plan.sr);
     let newL, newR;
     const g = groupRest[k];
-    if (g && g !== 'cont') carry = { text: g.text, indent: '', last: g.ks[g.ks.length - 1], ind: g.indent };
+    if (g && g !== 'cont') carry = { text: g.text, indent: '', last: g.ks[g.ks.length - 1], ind: g.indent, ml, mr, aw, bw };
+    // 同一組用組頭那列量的寬度：後面的列可能上次被收成 0 高（display:none），量不到寬度
+    if (g) ({ ml, mr, aw, bw } = carry);
     if (g){
       // 左半行首補懸掛縮排：量寬度時一起量，排完再接上
       const pre = carry.indent, mlI = t => ml(pre + t);
       const { L, R } = wrapAcross(carry.text, aw, bw, mlI, mr);
       const Lp = L.map((t, i) => (i ? carry.ind : pre) + t);
+      if (!carry.text) gone[k] = 1;
       if (k === carry.last){ newL = joinLines(Lp); newR = joinLines(R); carry = null; }
       else {
         newL = L.length && L[0] ? Lp[0] : ''; newR = R[0] || '';
@@ -1567,6 +1571,7 @@ function reflowFootNotes(opts){
                 : T('沒有可以重排的備註列。', 'Nothing to re-wrap.'));
     return;
   }
+  S.footGone = gone;
   let changed = 0;
   for (const r of rows){
     if (r.newL !== r.curL || r.newR !== r.curR) changed++;
@@ -1812,6 +1817,7 @@ async function exportXlsx(){
     // 不寫的話匯出檔會跟畫面上的末頁不一致（調了 40pt、回 Excel 還是原來的 70.9）。
     D.footNums.forEach((rn, k) => hByRow.set(rn, footHt(k)));
     const gone = new Set(S.deletedRowNums || []);   // 刪掉的列改成隱藏，不動內容與公式
+    D.footNums.forEach((rn, k) => { if (S.footGone && S.footGone[k] && !footHt(k)) gone.add(rn); });
     txt = txt.replace(/<row\b[^>]*?\/?>/g, tag => {
       const m = /\sr="(\d+)"/.exec(tag);
       if (!m) return tag;
@@ -2168,6 +2174,7 @@ function makePage(idx, side, no, last, first){
   // 合計與備註列：key 用 f<k> 開頭，跟資料列的數字索引分開，才不會撞在一起
   if (last) D.foot.forEach((r, k) => {
     const tr = el('tr'); tr.dataset.f = k;
+    if (S.footGone && S.footGone[k] && !footHt(k)) tr.style.display = 'none';
     r[side].forEach((c, ci) => {
       const key = `f${k}|${side}|${ci}`;
       const edited = S.edits[key];
@@ -2320,12 +2327,14 @@ function fitFoot(){
       px = Math.max(px, w.getBoundingClientRect().height / S.zoom);
       w.style.minHeight = mh;
     });
-    const need = Math.max(4, Math.ceil(px / PT / S.k * 10) / 10);
+    // 跨頁重排把整條備註排完、這列沒分到字：收成 0（手動填過 pt 的照舊）
+    const empty = S.footGone && S.footGone[k] && !(S.footFixed && S.footFixed[k]);
+    const need = empty ? 0 : Math.max(4, Math.ceil(px / PT / S.k * 10) / 10);
     // 合計／備註列的高度跟著內容走：長就撐開，刪掉字就縮回來。
     // 原檔的列高只是起點（常常是留了空行的 2 行高），不當地板；手動填過 pt 的才釘住。
     // k === 0 是合計列：字靠下貼著地線，高度是版面的一部分，不自動縮
     // 「備註用原檔列高」＝備註列也當地板（只長不縮），把作者在 Excel 留的行距原樣帶過來
-    const fixed = k === 0 || k > 0 && S.footKeep || (S.footFixed && S.footFixed[k]);
+    const fixed = !empty && (k === 0 || k > 0 && S.footKeep || (S.footFixed && S.footFixed[k]));
     if (fixed ? need > footHt(k) + 0.05 : Math.abs(need - footHt(k)) > 0.05){
       if (!S.footH) S.footH = D.foot.map(r => r.h);
       S.footH[k] = need;
