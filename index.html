@@ -88,6 +88,8 @@ body.sideOff #side>*{display:none}
 #side summary em{font-style:normal;font-size:11px;font-weight:400;color:var(--ui-dim);letter-spacing:0}
 #side .sb{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:5px 2px 0}
 #side .sublbl{flex:0 0 100%;font-size:11px;color:var(--ui-dim)}
+/* 面板裡說明「這樣設定會發生什麼事」的一行小字（例如末頁的備註會把地線頂多高） */
+#side .sub-note{flex:0 0 100%;margin:6px 2px 0;font-size:11px;line-height:1.6;color:var(--ui-dim)}
 /* 「本頁／全部／分頁」這種範圍標籤改成左邊一欄、按鈕排成格線。
    原本標籤自佔一整行又只是小灰字，四個琥珀色按鈕長得一模一樣，
    「全部」那排第三顆（HTML 重排）還會自己折行落單、看不出屬於哪一組。
@@ -97,6 +99,10 @@ body.sideOff #side>*{display:none}
 #side .sb.grid3 .sublbl{flex:none}
 #side .sb.grid3 .full{grid-column:1/-1}
 #side input[type=range]{width:110px}
+/* 檢視模式：三顆互斥的按鈕併成一組，生效的那一顆直接上色（不必自己猜現在是哪一種） */
+#side .sgrp{display:inline-flex;gap:2px;padding:2px;background:var(--ui-btn);border:1px solid var(--ui-btn-bd);border-radius:var(--r)}
+#side .sgrp button{height:26px;padding:0 10px;font-size:12px;border:0;background:transparent;border-radius:calc(var(--r) - 4px)}
+#side .sgrp button.active{background:var(--ui-acc);color:#fff}
 #sideTog{margin-left:auto}
 /* flex:0 0 auto 才會沿用 #doc 原本的 width:max-content。用 flex:1 會把 basis 變成 0，
    文件被壓成側欄剩下的寬度、右半截掉（實測內容需要 1677px 卻只給 428px） */
@@ -235,7 +241,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
   td.emptycell,td.mixalign,td.badfont{background:none!important}   /* 橘底／紫底／綠底只是螢幕上的提醒，不印出來 */
   #bar,#side,#drop,.badge,.mark,.notice,.panel-ov{display:none}
   #wrap{display:block}
-  #doc{padding:0;transform:none;width:auto}
+  #doc{padding:0;margin:0!important;transform:none;width:auto}   /* margin 是畫面上的置中留白，inline 優先度高，列印一定要蓋掉 */
   .spread{display:block;margin:0;padding-left:0;padding-top:0}
   .gut{display:none}
   .page{box-shadow:none;break-after:page;overflow:hidden}
@@ -349,6 +355,10 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
       <select id="footSel" class="dyn" title="選擇末頁的合計列或備註列"></select>
       <label title="該列的高度（pt）。改了會即時重排，末頁容量也會跟著算"><input type="number" id="footH" step="0.5" min="4">pt</label>
     </div>
+    <div class="sb">
+      <label title="勾選：每一列備註沿用原檔的列高（作者留的空白行距照留），只有字裝不下時才撐高。&#10;不勾（預設）：備註列跟著內容縮回，把原檔多留的空白收掉。&#10;&#10;兩種做法備註的最底部都會對齊其他頁的地線，差別在末頁的地線被往上頂多少：&#10;沿用原檔列高＝地線跟原檔一樣高；跟著內容縮回＝地線更低、末頁可以多放幾列。"><input type="checkbox" id="footKeep">備註用原檔列高</label>
+    </div>
+    <p class="sub-note" title=""><span id="footInfo"></span></p>
   </details>
 
   <details class="sec" data-key="struct">
@@ -416,7 +426,11 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
     <summary>畫面<em>不會印出來</em></summary>
     <div class="sb">
       <label title="畫面檢視縮放，不影響列印，只影響螢幕上看到的大小">檢視<input type="range" id="zm" min="0.3" max="1.5" step="0.05"></label>
-      <button id="bview" class="dyn" title="切換顯示模式：滿高（一頁剛好塞滿視窗高度）/ 滿寬（對開塞滿視窗寬度）/ 自訂（手動拉檢視滑桿）">滿高</button>
+      <span class="sgrp" id="viewSeg">
+        <button data-vm="fitW" title="讓整組對開（左右兩頁加上中間的裝訂縫與左側標尺）剛好塞滿視窗寬度。&#10;視窗變窄時會自己再縮。">符合頁寬</button>
+        <button data-vm="fitH" title="讓一頁的高度剛好塞進視窗（對開時左右兩頁同高，所以看一頁就夠）。&#10;視窗變矮時會自己再縮。">符合頁高</button>
+        <button data-vm="manual" title="自己拉左邊的檢視滑桿，縮放比例不再跟著視窗變動。">自訂</button>
+      </span>
     </div>
     <div class="sb"><span class="sublbl">格子提示</span>
       <label title="原檔沒設對齊（Excel 的「通用」）的格會標紅底提醒人工確認。取消勾選可整批隱藏紅底。"><input type="checkbox" id="shownofmt">紅底</label>
@@ -450,7 +464,7 @@ tr.orphan>td{box-shadow:inset 0 -2px 0 #e8a000}
 const LANG_KEY = 'spread:lang';
 let LANG = 'zh'; try { LANG = localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'zh'; } catch(e){}
 const T = (zh, en) => LANG === 'en' ? en : zh;
-const EN = {"把 .xlsx 拖進來": "Drop an .xlsx here", "或": "or ", "點這裡選檔案": "click to choose a file", "版面（左右頁分欄、分頁、重複表頭、紙張邊界、列高欄寬字型框線）": "The layout — left/right page split, page breaks, repeating headers, paper margins, row heights, column widths, fonts and rules —", "全部從檔案的列印設定讀出來": "all comes straight from the workbook's own print setup", "只吃 .xlsx。舊的 .xls 請先在 Excel 裡「另存新檔 → Excel 活頁簿 (.xlsx)」，或用": "Only .xlsx is supported. For an old .xls, use Excel's Save As → Excel Workbook (.xlsx) first, or convert it with", "轉。": ".", "檔案不會上傳，全部在你這台電腦的瀏覽器裡處理。": "Nothing is uploaded — everything runs in the browser on your own machine.", "復原 (⌘Z)": "Undo (⌘Z)", "重做 (⇧⌘Z)": "Redo (⇧⌘Z)", "列印 / 存 PDF": "Print / Save PDF", "匯出 xlsx": "Export xlsx", "換檔案": "New file", "操作說明": "How to use", "復原上一步（⌘Z / Ctrl+Z）。註：拖曳換列的順序不在復原範圍內": "Undo the last step (⌘Z / Ctrl+Z). Note: reordering rows by dragging is not undoable", "重做（⇧⌘Z / Ctrl+Shift+Z）": "Redo (⇧⌘Z / Ctrl+Shift+Z)", "開啟瀏覽器的列印對話框。\n目的地務必選「另存為 PDF」，選成 Right PDF／Adobe PDF 等印表機會讓整頁變圖片、PDF 裡沒有文字。\n\nPDF 上若出現不明色塊／浮水印，多半是 Chrome 擴充功能疊上去的，改用無痕視窗印一次就會消失。": "Opens the browser's print dialog.\nSet Destination to \"Save as PDF\" — picking Right PDF, Adobe PDF or any printer name rasterizes the page, leaving a PDF with no text in it.\n\nStray color blocks or watermarks in the PDF are almost always a Chrome extension painting over the page; print once from an incognito window and they disappear.", "把調好的列高與分頁寫回 xlsx，其餘內容原封不動，可回 Excel 再微調": "Writes the adjusted row heights and page breaks back into the xlsx, leaving everything else untouched, so you can keep tweaking in Excel", "關閉目前的檔案，回到拖曳載入畫面換一個檔案": "Closes the current file and returns to the drop screen so you can load another one", "單列調高：拖該列下緣，或點選後用 ↑↓（Shift×5）／直接填列高。\n拖曳資料列可換順序（亦可 Alt+↑/↓）。\n雙擊＝最小列高。\n左右頁同一列永遠同高。\n分頁：點左側標尺的累積值，或在選取列按 B。": "Resize one row: drag its bottom edge, or select it and press ↑↓ (Shift = ×5), or type a height.\nDrag a data row to reorder it (Alt+↑/↓ works too).\nDouble-click = shrink to fit.\nThe same row is always the same height on the left and right page.\nPage breaks: click a running total on the left ruler, or press B on the selected row.", "切換深色／亮色介面（只影響工具列與面板，頁面本身一律白底）": "Toggle dark / light UI (toolbar and panel only — the pages stay white)", "收合／展開左側設定面板": "Collapse / expand the settings panel", "選取的列": "Selected row", "先在畫面上點選": "click a row on the page first", "列高": "Row height", "最小列高": "Shrink to fit", "此列前分頁 (B)": "Break before (B)", "刪除本列": "Delete row", "本列框線": "Row rules", "上線": "Top", "下線": "Bottom", "上下": "Both", "無線": "None", "目前選取列的高度（pt），可直接輸入數字修改": "Height of the selected row (pt) — type a number to change it", "把目前選取的那一列壓到文字實際需要的最小高度": "Shrinks the selected row to the smallest height its text actually needs", "在目前選取列之前插入手動分頁（快捷鍵 B），再按一次取消": "Inserts a manual page break before the selected row (shortcut B); press again to remove it", "從版面刪掉目前選取的資料列。\n復原鍵救不回來，會先問一次。\n匯出 xlsx 時原檔那一列會被設成隱藏，不是真的刪除。": "Removes the selected data row from the layout.\nUndo will not bring it back, so you get one confirmation.\nOn export the original row is marked hidden in the xlsx, not actually deleted.", "選取列只畫上框線": "Rule above the selected row only", "選取列只畫下框線": "Rule below the selected row only", "選取列上下都畫框線": "Rules above and below the selected row", "選取列不畫上下框線": "No rules above or below the selected row", "列高與分頁": "Row heights & breaks", "本頁／整份": "this page / whole document", "本頁": "This page", "平均列高": "Even heights", "全部": "All pages", "HTML 重排": "Reflow", "分頁": "Page breaks", "清除分頁": "Clear breaks", "凍結分頁": "Freeze breaks", "自動分頁": "Auto breaks", "只把這一頁的每一列壓到文字實際需要的高度": "Shrinks every row on this page to the height its text actually needs", "套用「單行列高」與「多行加高」兩個設定，再把剩下的空白平均分給所有列。\n單行列＝單行列高；多行列＝內容高＋多行加高；空白間隔列不動。\n末頁不攤平（資料少，攤了會把每列撐得很高）。\n\n改過那兩個數字後要按這裡才會生效。": "Applies the \"Single-line height\" and \"Multi-line padding\" settings, then splits the remaining slack evenly across the rows.\nSingle-line rows get the fixed height; wrapping rows get content height plus the padding; blank spacer rows are left alone.\nThe last page is not spread out (too little data — it would blow every row up).\n\nAfter changing either number, press this for it to take effect.", "把所有頁面的每一列都壓到文字實際需要的最小高度": "Shrinks every row on every page to the smallest height its text needs", "每一頁都套用「單行列高」與「多行加高」，再把剩餘空白平均分給所有列。\n末頁只做前半段，不把空白攤到列高上。\n\n改過那兩個數字後要按這裡才會生效。": "Applies \"Single-line height\" and \"Multi-line padding\" on every page, then splits the remaining slack evenly across the rows.\nThe last page only gets the first half — its slack is not spread into the row heights.\n\nAfter changing either number, press this for it to take effect.", "忽略 Excel 原始列高與分頁，全部依內容重新排版（要回原樣按「重設」）": "Ignores Excel's original row heights and breaks and re-lays out everything from the content (press Reset to go back)", "清掉所有手動分頁點，改成完全照列高自動流動分頁": "Clears every manual break and lets pages flow purely by row height", "把目前每一頁的起點通通寫成手動分頁點，並關掉自動分頁。\n之後改列高、改字級都不會讓頁面重新流動，版面就定住了。\n（列高加到塞不下時仍會強制切頁，那是防溢出，不能關）": "Turns the current first row of every page into a manual break and turns auto-breaking off.\nAfter that, changing row heights or font size will not reflow the pages — the layout is pinned.\n(Rows that no longer fit are still forced onto a new page — that overflow guard cannot be turned off.)", "打勾後分頁會依列高自動計算，列高改變時頁面會重新流動": "When checked, breaks are computed from row heights and pages reflow whenever a height changes", "選取的欄": "Selected column", "對齊與框線": "alignment & rules", "對齊": "Align", "左": "L", "中": "C", "右": "R", "散": "Dist", "齊": "Just", "框線": "Rules", "左線": "Left", "右線": "Right", "左右": "Both", "選擇要設定對齊與框線的欄位": "Choose the column whose alignment and rules you want to set", "該欄靠左對齊": "Align this column left", "該欄置中對齊": "Center this column", "該欄靠右對齊": "Align this column right", "該欄分散對齊": "Distribute this column", "該欄左右對齊（兩端對齊，換行後末行靠左）": "Justify this column (last line of a wrap stays left)", "該欄只畫左框線": "Rule on the left of this column only", "該欄只畫右框線": "Rule on the right of this column only", "該欄左右都畫框線": "Rules on both sides of this column", "該欄不畫左右框線": "No side rules on this column", "合計／備註": "Totals & notes", "末頁": "last page", "選擇末頁的合計列或備註列": "Pick the totals row or a note row on the last page", "該列的高度（pt）。改了會即時重排，末頁容量也會跟著算": "Height of that row (pt). Changing it reflows immediately and recomputes the last page's capacity", "結構": "Structure", "整份套用": "whole document", "分欄": "Split at", "範圍": "Range", "表頭到": "Header ends at row", "列": "", "選擇左右頁的分界欄位，左邊的欄歸左頁、右邊的歸右頁": "Choose where the spread splits: columns to the left go on the left page, the rest on the right", "列印範圍（A1 格式，例如 A1:T245）。\n檔案有設「列印範圍」時自動帶入；沒設就抓有資料的最大範圍。\n改這裡等於重新框要排版的區域，列高與分頁會重算。": "Print range in A1 notation, e.g. A1:T245.\nTaken from the workbook's own print area when it has one; otherwise the largest range with data.\nChanging it re-frames the area being laid out, so row heights and breaks are recomputed.", "表頭（每頁重複的標題＋欄位名稱）到第幾列為止，下一列開始算資料列。\n檔案有設「列印標題」時自動帶入；舊版 .xls 轉檔後通常沒有，要手動填。\n填 0 = 沒有表頭。": "Last row of the header (the title plus column names repeated on every page); data rows start on the next one.\nTaken from the workbook's print titles when it has them; converted .xls files usually do not, so fill it in by hand.\n0 = no header.", "文字": "Text", "字型": "Font", "原檔字型": "As in file", "微軟正黑體": "Microsoft JhengHei", "新細明體": "PMingLiU", "細明體": "MingLiU", "標楷體": "DFKai-SB", "蘋方 (PingFang)": "PingFang TC", "思源黑體": "Noto Sans CJK TC", "思源宋體": "Noto Serif CJK TC", "標題對齊": "Title align", "中縫接續": "Across the gutter", "置中": "Center", "靠左": "Left", "靠右": "Right", "字級": "Font size", "行距": "Line height", "全域字型設定，切換後自動重新計算列高": "Font for the whole document; row heights are recomputed when you switch", "設定表頭標題的對齊方式": "How the header title is aligned", "字級倍率，1 = 原始大小；調大字會變大但可能溢出格子": "Font size multiplier, 1 = original. Larger text may overflow its cell", "CSS 行距，影響同一格內多行文字之間的距離": "CSS line height — the spacing between wrapped lines inside one cell", "版面": "Layout", "縮放": "Scale", "列間距": "Row spacing", "天地線高": "Rule-to-rule height", "首列留白": "First-row gap", "單行列高": "Single-line height", "多行加高": "Multi-line padding", "線粗": "Rule width", "末頁對齊地線": "Last page ends on the bottom rule", "頁碼": "Page numbers", "Excel 的列印縮放比例，影響文字和框線的實際大小": "Excel's print scaling — it changes the real size of the text and the rules", "每一列額外墊高，等於拉開它跟下一列之間的距離；全部頁面一起套用": "Extra height added to every row, i.e. the gap to the row below; applied on all pages", "表頭天線到地線之間的總高（mm）。這個值決定每頁能塞多少資料列：\n• 資料列不夠填滿時，地線會靠一列空白列撐到這個位置\n• 資料列太多時會自動分頁\n• 預設值 = 紙張高 − 上下邊界 − 標題區高度\n• 所有頁面共用同一個值，地線才會對齊": "Total height (mm) from the header's top rule to the bottom rule. It decides how many data rows fit on a page:\n• when there are not enough rows, a filler row pushes the bottom rule down to this height\n• when there are too many, the page breaks\n• default = paper height − top/bottom margins − title block\n• every page shares one value, which is what keeps the bottom rules aligned", "每頁第一列跟表頭下邊線之間的留白（pt），只影響每頁的第一列。\n\n✓ 改了立刻重排，不必按平均列高。\n但它會從每頁容量扣掉，可能把最後一列擠到下一頁——\n調完建議再按一次「全部→平均列高」收尾。": "Space (pt) between the header's bottom rule and the first row of each page; it only affects that first row.\n\n✓ Takes effect immediately — no need to press Even heights.\nIt does come out of each page's capacity, though, so it can push the last row onto the next page — finish with All → Even heights.", "不換行的單行列統一設成這個高度（pt）。\n內容需要更高時以內容為準，不會切字。\n\n⚠ 只在按「平均列高」時才套用——改這裡不會立刻重排，要再按一次平均列高。\n按完之後手動拉過的列會脫離這個值，直到下次再按平均列高。": "Every single-line row is set to this height (pt).\nRows whose content needs more keep the taller height — text is never clipped.\n\n⚠ Only applied when you press Even heights — editing this does not reflow on its own.\nAny row you drag by hand afterwards leaves this value behind until the next Even heights.", "會換行的多行列，在內容高度之上額外留的空間（pt）。\n之後剩下的空白才平均分給所有列。\n\n⚠ 只在按「平均列高」時才套用——改這裡不會立刻重排，要再按一次平均列高。": "Extra space (pt) added above the content height of rows that wrap.\nWhatever slack is left after that is split evenly across the rows.\n\n⚠ Only applied when you press Even heights — editing this does not reflow on its own.", "天線（表頭上緣）與地線（表格下緣）的粗細，「上線／左線」等手動加的框線也用這個值。\n預設 1.5pt（原檔比這細會自動墊到 1.5，比這粗就沿用原檔）。\n\n✓ 改了立刻重排，不必按平均列高。": "Width of the top and bottom rules, and of any rule you add by hand with Top / Left and friends.\nDefault 1.5pt — thinner rules in the source are bumped up to 1.5, thicker ones are kept.\n\n✓ Takes effect immediately — no need to press Even heights.", "勾選：末頁的天地線高跟其他頁一樣，合計與備註會被包在這個高度裡，備註底部自然對齊其他頁的地線。\n不勾：末頁可以用獨立的高度值（右邊的數字），不受其他頁牽制。\n\n✓ 改了立刻重排，不必按平均列高。它改的是末頁容量。": "Checked: the last page uses the same rule-to-rule height as the rest, so the totals and notes sit inside it and the notes end flush with the other pages' bottom rule.\nUnchecked: the last page gets its own height (the number on the right), independent of the others.\n\n✓ Takes effect immediately — no need to press Even heights. It changes the last page's capacity.", "在每頁底部置中顯示頁碼（左頁奇數、右頁偶數）。預設不顯示。": "Centers a page number at the foot of every page (odd on the left, even on the right). Off by default.", "檢查": "Checks", "不動版面": "layout untouched", "驗算": "Cross-foot", "原檔檢誤": "Source check", "用目前畫面上的數字重新核對：\n【階層】總計 = Σ主管 → 主管 = Σ基金（公司）→ 基金 = Σ大分類 → 大分類 = Σ各計畫\n【交叉】比照原檔 sumif：各「◯◯主管」加總、計畫別合計（一般建築及設備＋繼續＋新興）都要等於總計\n百分比欄自動排除。": "Re-adds the numbers currently on screen:\n[Hierarchy] Grand total = Σ agencies → agency = Σ funds → fund = Σ major categories → category = Σ projects\n[Cross-check] Same idea as the workbook's own SUMIFs: the agency rows, and the project-type totals, must each add up to the grand total.\nPercentage columns are skipped automatically.", "讀原檔裡「差異數」那幾列（通常放在列印範圍外的 sumif 檢誤區），檢查是不是全部為 0。\n那是 Excel 存檔時算好的值，本工具不重算公式。": "Reads the \"variance\" rows in the source file (usually a SUMIF check block outside the print area) and verifies they are all zero.\nThose are the values Excel cached on save — this tool does not recalculate formulas.", "畫面": "View", "不會印出來": "never printed", "檢視": "Zoom", "滿高": "Fit height", "格子提示": "Cell flags", "紅底": "Red", "橘底": "Orange", "紫底": "Purple", "綠底": "Green", "畫面檢視縮放，不影響列印，只影響螢幕上看到的大小": "On-screen zoom only — it does not affect printing", "切換顯示模式：滿高（一頁剛好塞滿視窗高度）/ 滿寬（對開塞滿視窗寬度）/ 自訂（手動拉檢視滑桿）": "Cycles the display mode: Fit height (one page fills the window height) / Fit width (the spread fills the window width) / Custom (drag the zoom slider yourself)", "原檔沒設對齊（Excel 的「通用」）的格會標紅底提醒人工確認。取消勾選可整批隱藏紅底。": "Cells with no alignment set in the source (Excel's \"General\") get a red background so you can check them by hand. Uncheck to hide them all.", "表格框線內卻沒有值的格會標淺橘底提醒（只在畫面上，列印、PDF 與匯出的 xlsx 都不會有）。取消勾選可整批隱藏橘底。": "Cells inside the table rules with no value get a light orange background (on screen only — never in print, the PDF or the exported xlsx). Uncheck to hide them all.", "同一欄裡對齊方式跟多數不一樣的格會標淺紫底（只在畫面上，列印、PDF 與匯出的 xlsx 都不會有）。取消勾選可整批隱藏紫底。": "Cells aligned differently from the rest of their column get a light purple background (on screen only — never in print, the PDF or the exported xlsx). Uncheck to hide them all.", "一格內混了兩種以上字型、其中有一種跟全份慣例對不上的格會標淺綠底（只在畫面上，列印、PDF 與匯出的 xlsx 都不會有）。取消勾選可整批隱藏綠底。": "Cells mixing two or more fonts where one does not match the document's convention get a light green background (on screen only — never in print, the PDF or the exported xlsx). Uncheck to hide them all.", "編輯與設定": "Editing & settings", "編輯內容": "Edit cells", "PDF 文字可編輯": "Editable PDF text", "匯出設定": "Export settings", "匯入設定": "Import settings", "重設": "Reset", "打開後可直接點資料格改字。改完不會動到你調好的列高，只有字多到裝不下時才會往上撐。\n原檔用來對齊的白色補位字會顯示成灰色，方便刪掉。": "Turn this on to click a cell and retype it. Editing leaves your row heights alone; a row only grows when the text no longer fits.\nWhite spacer characters the source used for alignment are shown in gray so you can delete them.", "分散對齊的格子原本是一個字一個元素（字距最準），存成 PDF 後在編輯器裡一字一塊、幾乎不能編。\n打勾改用 CSS 兩端對齊，整格是一段連續文字、PDF 編得動，字距由瀏覽器決定、可能跟 Excel 略有差異。": "Distributed cells are normally laid out one character per element, which gives the truest spacing but turns into one uneditable block per character in a PDF.\nCheck this to use CSS justification instead: the cell becomes one run of text that a PDF editor can handle, with spacing decided by the browser and possibly a little different from Excel.", "把目前的列高、分頁、縮放等設定匯出成 JSON 檔，下次可匯入還原": "Saves the current row heights, breaks, scaling and so on to a JSON file you can import later", "匯入之前匯出的 JSON 設定檔，還原列高、分頁等設定": "Loads a JSON settings file you exported earlier and restores the row heights, breaks and the rest", "回到 Excel 原始的列高與分頁，放棄所有調整": "Goes back to Excel's original row heights and page breaks, discarding every adjustment"};
+const EN = {"把 .xlsx 拖進來": "Drop an .xlsx here", "或": "or ", "點這裡選檔案": "click to choose a file", "版面（左右頁分欄、分頁、重複表頭、紙張邊界、列高欄寬字型框線）": "The layout — left/right page split, page breaks, repeating headers, paper margins, row heights, column widths, fonts and rules —", "全部從檔案的列印設定讀出來": "all comes straight from the workbook's own print setup", "只吃 .xlsx。舊的 .xls 請先在 Excel 裡「另存新檔 → Excel 活頁簿 (.xlsx)」，或用": "Only .xlsx is supported. For an old .xls, use Excel's Save As → Excel Workbook (.xlsx) first, or convert it with", "轉。": ".", "檔案不會上傳，全部在你這台電腦的瀏覽器裡處理。": "Nothing is uploaded — everything runs in the browser on your own machine.", "復原 (⌘Z)": "Undo (⌘Z)", "重做 (⇧⌘Z)": "Redo (⇧⌘Z)", "列印 / 存 PDF": "Print / Save PDF", "匯出 xlsx": "Export xlsx", "換檔案": "New file", "操作說明": "How to use", "復原上一步（⌘Z / Ctrl+Z）。註：拖曳換列的順序不在復原範圍內": "Undo the last step (⌘Z / Ctrl+Z). Note: reordering rows by dragging is not undoable", "重做（⇧⌘Z / Ctrl+Shift+Z）": "Redo (⇧⌘Z / Ctrl+Shift+Z)", "開啟瀏覽器的列印對話框。\n目的地務必選「另存為 PDF」，選成 Right PDF／Adobe PDF 等印表機會讓整頁變圖片、PDF 裡沒有文字。\n\nPDF 上若出現不明色塊／浮水印，多半是 Chrome 擴充功能疊上去的，改用無痕視窗印一次就會消失。": "Opens the browser's print dialog.\nSet Destination to \"Save as PDF\" — picking Right PDF, Adobe PDF or any printer name rasterizes the page, leaving a PDF with no text in it.\n\nStray color blocks or watermarks in the PDF are almost always a Chrome extension painting over the page; print once from an incognito window and they disappear.", "把調好的列高與分頁寫回 xlsx，其餘內容原封不動，可回 Excel 再微調": "Writes the adjusted row heights and page breaks back into the xlsx, leaving everything else untouched, so you can keep tweaking in Excel", "關閉目前的檔案，回到拖曳載入畫面換一個檔案": "Closes the current file and returns to the drop screen so you can load another one", "單列調高：拖該列下緣，或點選後用 ↑↓（Shift×5）／直接填列高。\n拖曳資料列可換順序（亦可 Alt+↑/↓）。\n雙擊＝最小列高。\n左右頁同一列永遠同高。\n分頁：點左側標尺的累積值，或在選取列按 B。": "Resize one row: drag its bottom edge, or select it and press ↑↓ (Shift = ×5), or type a height.\nDrag a data row to reorder it (Alt+↑/↓ works too).\nDouble-click = shrink to fit.\nThe same row is always the same height on the left and right page.\nPage breaks: click a running total on the left ruler, or press B on the selected row.", "切換深色／亮色介面（只影響工具列與面板，頁面本身一律白底）": "Toggle dark / light UI (toolbar and panel only — the pages stay white)", "收合／展開左側設定面板": "Collapse / expand the settings panel", "選取的列": "Selected row", "先在畫面上點選": "click a row on the page first", "列高": "Row height", "最小列高": "Shrink to fit", "此列前分頁 (B)": "Break before (B)", "刪除本列": "Delete row", "本列框線": "Row rules", "上線": "Top", "下線": "Bottom", "上下": "Both", "無線": "None", "目前選取列的高度（pt），可直接輸入數字修改": "Height of the selected row (pt) — type a number to change it", "把目前選取的那一列壓到文字實際需要的最小高度": "Shrinks the selected row to the smallest height its text actually needs", "在目前選取列之前插入手動分頁（快捷鍵 B），再按一次取消": "Inserts a manual page break before the selected row (shortcut B); press again to remove it", "從版面刪掉目前選取的資料列。\n復原鍵救不回來，會先問一次。\n匯出 xlsx 時原檔那一列會被設成隱藏，不是真的刪除。": "Removes the selected data row from the layout.\nUndo will not bring it back, so you get one confirmation.\nOn export the original row is marked hidden in the xlsx, not actually deleted.", "選取列只畫上框線": "Rule above the selected row only", "選取列只畫下框線": "Rule below the selected row only", "選取列上下都畫框線": "Rules above and below the selected row", "選取列不畫上下框線": "No rules above or below the selected row", "列高與分頁": "Row heights & breaks", "本頁／整份": "this page / whole document", "本頁": "This page", "平均列高": "Even heights", "全部": "All pages", "HTML 重排": "Reflow", "分頁": "Page breaks", "清除分頁": "Clear breaks", "凍結分頁": "Freeze breaks", "自動分頁": "Auto breaks", "只把這一頁的每一列壓到文字實際需要的高度": "Shrinks every row on this page to the height its text actually needs", "套用「單行列高」與「多行加高」兩個設定，再把剩下的空白平均分給所有列。\n單行列＝單行列高；多行列＝內容高＋多行加高；空白間隔列不動。\n末頁不攤平（資料少，攤了會把每列撐得很高）。\n\n改過那兩個數字後要按這裡才會生效。": "Applies the \"Single-line height\" and \"Multi-line padding\" settings, then splits the remaining slack evenly across the rows.\nSingle-line rows get the fixed height; wrapping rows get content height plus the padding; blank spacer rows are left alone.\nThe last page is not spread out (too little data — it would blow every row up).\n\nAfter changing either number, press this for it to take effect.", "把所有頁面的每一列都壓到文字實際需要的最小高度": "Shrinks every row on every page to the smallest height its text needs", "每一頁都套用「單行列高」與「多行加高」，再把剩餘空白平均分給所有列。\n末頁只做前半段，不把空白攤到列高上。\n\n改過那兩個數字後要按這裡才會生效。": "Applies \"Single-line height\" and \"Multi-line padding\" on every page, then splits the remaining slack evenly across the rows.\nThe last page only gets the first half — its slack is not spread into the row heights.\n\nAfter changing either number, press this for it to take effect.", "忽略 Excel 原始列高與分頁，全部依內容重新排版（要回原樣按「重設」）": "Ignores Excel's original row heights and breaks and re-lays out everything from the content (press Reset to go back)", "清掉所有手動分頁點，改成完全照列高自動流動分頁": "Clears every manual break and lets pages flow purely by row height", "把目前每一頁的起點通通寫成手動分頁點，並關掉自動分頁。\n之後改列高、改字級都不會讓頁面重新流動，版面就定住了。\n（列高加到塞不下時仍會強制切頁，那是防溢出，不能關）": "Turns the current first row of every page into a manual break and turns auto-breaking off.\nAfter that, changing row heights or font size will not reflow the pages — the layout is pinned.\n(Rows that no longer fit are still forced onto a new page — that overflow guard cannot be turned off.)", "打勾後分頁會依列高自動計算，列高改變時頁面會重新流動": "When checked, breaks are computed from row heights and pages reflow whenever a height changes", "選取的欄": "Selected column", "對齊與框線": "alignment & rules", "對齊": "Align", "左": "L", "中": "C", "右": "R", "散": "Dist", "齊": "Just", "框線": "Rules", "左線": "Left", "右線": "Right", "左右": "Both", "選擇要設定對齊與框線的欄位": "Choose the column whose alignment and rules you want to set", "該欄靠左對齊": "Align this column left", "該欄置中對齊": "Center this column", "該欄靠右對齊": "Align this column right", "該欄分散對齊": "Distribute this column", "該欄左右對齊（兩端對齊，換行後末行靠左）": "Justify this column (last line of a wrap stays left)", "該欄只畫左框線": "Rule on the left of this column only", "該欄只畫右框線": "Rule on the right of this column only", "該欄左右都畫框線": "Rules on both sides of this column", "該欄不畫左右框線": "No side rules on this column", "合計／備註": "Totals & notes", "末頁": "last page", "選擇末頁的合計列或備註列": "Pick the totals row or a note row on the last page", "該列的高度（pt）。改了會即時重排，末頁容量也會跟著算": "Height of that row (pt). Changing it reflows immediately and recomputes the last page's capacity", "結構": "Structure", "整份套用": "whole document", "分欄": "Split at", "範圍": "Range", "表頭到": "Header ends at row", "列": "", "選擇左右頁的分界欄位，左邊的欄歸左頁、右邊的歸右頁": "Choose where the spread splits: columns to the left go on the left page, the rest on the right", "列印範圍（A1 格式，例如 A1:T245）。\n檔案有設「列印範圍」時自動帶入；沒設就抓有資料的最大範圍。\n改這裡等於重新框要排版的區域，列高與分頁會重算。": "Print range in A1 notation, e.g. A1:T245.\nTaken from the workbook's own print area when it has one; otherwise the largest range with data.\nChanging it re-frames the area being laid out, so row heights and breaks are recomputed.", "表頭（每頁重複的標題＋欄位名稱）到第幾列為止，下一列開始算資料列。\n檔案有設「列印標題」時自動帶入；舊版 .xls 轉檔後通常沒有，要手動填。\n填 0 = 沒有表頭。": "Last row of the header (the title plus column names repeated on every page); data rows start on the next one.\nTaken from the workbook's print titles when it has them; converted .xls files usually do not, so fill it in by hand.\n0 = no header.", "文字": "Text", "字型": "Font", "原檔字型": "As in file", "微軟正黑體": "Microsoft JhengHei", "新細明體": "PMingLiU", "細明體": "MingLiU", "標楷體": "DFKai-SB", "蘋方 (PingFang)": "PingFang TC", "思源黑體": "Noto Sans CJK TC", "思源宋體": "Noto Serif CJK TC", "標題對齊": "Title align", "中縫接續": "Across the gutter", "置中": "Center", "靠左": "Left", "靠右": "Right", "字級": "Font size", "行距": "Line height", "全域字型設定，切換後自動重新計算列高": "Font for the whole document; row heights are recomputed when you switch", "設定表頭標題的對齊方式": "How the header title is aligned", "字級倍率，1 = 原始大小；調大字會變大但可能溢出格子": "Font size multiplier, 1 = original. Larger text may overflow its cell", "CSS 行距，影響同一格內多行文字之間的距離": "CSS line height — the spacing between wrapped lines inside one cell", "版面": "Layout", "縮放": "Scale", "列間距": "Row spacing", "天地線高": "Rule-to-rule height", "首列留白": "First-row gap", "單行列高": "Single-line height", "多行加高": "Multi-line padding", "線粗": "Rule width", "末頁對齊地線": "Last page ends on the bottom rule", "頁碼": "Page numbers", "Excel 的列印縮放比例，影響文字和框線的實際大小": "Excel's print scaling — it changes the real size of the text and the rules", "每一列額外墊高，等於拉開它跟下一列之間的距離；全部頁面一起套用": "Extra height added to every row, i.e. the gap to the row below; applied on all pages", "表頭天線到地線之間的總高（mm）。這個值決定每頁能塞多少資料列：\n• 資料列不夠填滿時，地線會靠一列空白列撐到這個位置\n• 資料列太多時會自動分頁\n• 預設值 = 紙張高 − 上下邊界 − 標題區高度\n• 所有頁面共用同一個值，地線才會對齊": "Total height (mm) from the header's top rule to the bottom rule. It decides how many data rows fit on a page:\n• when there are not enough rows, a filler row pushes the bottom rule down to this height\n• when there are too many, the page breaks\n• default = paper height − top/bottom margins − title block\n• every page shares one value, which is what keeps the bottom rules aligned", "每頁第一列跟表頭下邊線之間的留白（pt），只影響每頁的第一列。\n\n✓ 改了立刻重排，不必按平均列高。\n但它會從每頁容量扣掉，可能把最後一列擠到下一頁——\n調完建議再按一次「全部→平均列高」收尾。": "Space (pt) between the header's bottom rule and the first row of each page; it only affects that first row.\n\n✓ Takes effect immediately — no need to press Even heights.\nIt does come out of each page's capacity, though, so it can push the last row onto the next page — finish with All → Even heights.", "不換行的單行列統一設成這個高度（pt）。\n內容需要更高時以內容為準，不會切字。\n\n⚠ 只在按「平均列高」時才套用——改這裡不會立刻重排，要再按一次平均列高。\n按完之後手動拉過的列會脫離這個值，直到下次再按平均列高。": "Every single-line row is set to this height (pt).\nRows whose content needs more keep the taller height — text is never clipped.\n\n⚠ Only applied when you press Even heights — editing this does not reflow on its own.\nAny row you drag by hand afterwards leaves this value behind until the next Even heights.", "會換行的多行列，在內容高度之上額外留的空間（pt）。\n之後剩下的空白才平均分給所有列。\n\n⚠ 只在按「平均列高」時才套用——改這裡不會立刻重排，要再按一次平均列高。": "Extra space (pt) added above the content height of rows that wrap.\nWhatever slack is left after that is split evenly across the rows.\n\n⚠ Only applied when you press Even heights — editing this does not reflow on its own.", "天線（表頭上緣）與地線（表格下緣）的粗細，「上線／左線」等手動加的框線也用這個值。\n預設 1.5pt（原檔比這細會自動墊到 1.5，比這粗就沿用原檔）。\n\n✓ 改了立刻重排，不必按平均列高。": "Width of the top and bottom rules, and of any rule you add by hand with Top / Left and friends.\nDefault 1.5pt — thinner rules in the source are bumped up to 1.5, thicker ones are kept.\n\n✓ Takes effect immediately — no need to press Even heights.", "勾選：末頁的天地線高跟其他頁一樣，合計與備註會被包在這個高度裡，備註底部自然對齊其他頁的地線。\n不勾：末頁可以用獨立的高度值（右邊的數字），不受其他頁牽制。\n\n✓ 改了立刻重排，不必按平均列高。它改的是末頁容量。": "Checked: the last page uses the same rule-to-rule height as the rest, so the totals and notes sit inside it and the notes end flush with the other pages' bottom rule.\nUnchecked: the last page gets its own height (the number on the right), independent of the others.\n\n✓ Takes effect immediately — no need to press Even heights. It changes the last page's capacity.", "在每頁底部置中顯示頁碼（左頁奇數、右頁偶數）。預設不顯示。": "Centers a page number at the foot of every page (odd on the left, even on the right). Off by default.", "檢查": "Checks", "不動版面": "layout untouched", "驗算": "Cross-foot", "原檔檢誤": "Source check", "用目前畫面上的數字重新核對：\n【階層】總計 = Σ主管 → 主管 = Σ基金（公司）→ 基金 = Σ大分類 → 大分類 = Σ各計畫\n【交叉】比照原檔 sumif：各「◯◯主管」加總、計畫別合計（一般建築及設備＋繼續＋新興）都要等於總計\n百分比欄自動排除。": "Re-adds the numbers currently on screen:\n[Hierarchy] Grand total = Σ agencies → agency = Σ funds → fund = Σ major categories → category = Σ projects\n[Cross-check] Same idea as the workbook's own SUMIFs: the agency rows, and the project-type totals, must each add up to the grand total.\nPercentage columns are skipped automatically.", "讀原檔裡「差異數」那幾列（通常放在列印範圍外的 sumif 檢誤區），檢查是不是全部為 0。\n那是 Excel 存檔時算好的值，本工具不重算公式。": "Reads the \"variance\" rows in the source file (usually a SUMIF check block outside the print area) and verifies they are all zero.\nThose are the values Excel cached on save — this tool does not recalculate formulas.", "畫面": "View", "不會印出來": "never printed", "檢視": "Zoom", "符合頁寬": "Fit width", "符合頁高": "Fit height", "自訂": "Custom", "讓整組對開（左右兩頁加上中間的裝訂縫與左側標尺）剛好塞滿視窗寬度。\n視窗變窄時會自己再縮。": "Makes the whole spread (both pages, the gutter and the left ruler) fit the window width.\nIt re-scales by itself when the window gets narrower.", "讓一頁的高度剛好塞進視窗（對開時左右兩頁同高，所以看一頁就夠）。\n視窗變矮時會自己再縮。": "Makes one page fit the window height. Both halves of a spread are the same height, so one page is enough.\nIt re-scales by itself when the window gets shorter.", "自己拉左邊的檢視滑桿，縮放比例不再跟著視窗變動。": "Drag the zoom slider yourself; the zoom stops following the window.", "備註用原檔列高": "Keep source note heights", "勾選：每一列備註沿用原檔的列高（作者留的空白行距照留），只有字裝不下時才撐高。\n不勾（預設）：備註列跟著內容縮回，把原檔多留的空白收掉。\n\n兩種做法備註的最底部都會對齊其他頁的地線，差別在末頁的地線被往上頂多少：\n沿用原檔列高＝地線跟原檔一樣高；跟著內容縮回＝地線更低、末頁可以多放幾列。": "Checked: each note row keeps the height it has in the source (the author\u2019s blank spacing is preserved) and only grows when the text no longer fits.\nUnchecked (default): note rows shrink back to their content, dropping the blank space the source left.\n\nEither way the notes end flush with the other pages\u2019 bottom rule; what changes is how far that rule is pushed up on the last page: keeping the source heights puts it where the source had it, shrinking to content puts it lower and leaves room for more rows.", "格子提示": "Cell flags", "紅底": "Red", "橘底": "Orange", "紫底": "Purple", "綠底": "Green", "畫面檢視縮放，不影響列印，只影響螢幕上看到的大小": "On-screen zoom only — it does not affect printing", "原檔沒設對齊（Excel 的「通用」）的格會標紅底提醒人工確認。取消勾選可整批隱藏紅底。": "Cells with no alignment set in the source (Excel's \"General\") get a red background so you can check them by hand. Uncheck to hide them all.", "表格框線內卻沒有值的格會標淺橘底提醒（只在畫面上，列印、PDF 與匯出的 xlsx 都不會有）。取消勾選可整批隱藏橘底。": "Cells inside the table rules with no value get a light orange background (on screen only — never in print, the PDF or the exported xlsx). Uncheck to hide them all.", "同一欄裡對齊方式跟多數不一樣的格會標淺紫底（只在畫面上，列印、PDF 與匯出的 xlsx 都不會有）。取消勾選可整批隱藏紫底。": "Cells aligned differently from the rest of their column get a light purple background (on screen only — never in print, the PDF or the exported xlsx). Uncheck to hide them all.", "一格內混了兩種以上字型、其中有一種跟全份慣例對不上的格會標淺綠底（只在畫面上，列印、PDF 與匯出的 xlsx 都不會有）。取消勾選可整批隱藏綠底。": "Cells mixing two or more fonts where one does not match the document's convention get a light green background (on screen only — never in print, the PDF or the exported xlsx). Uncheck to hide them all.", "編輯與設定": "Editing & settings", "編輯內容": "Edit cells", "PDF 文字可編輯": "Editable PDF text", "匯出設定": "Export settings", "匯入設定": "Import settings", "重設": "Reset", "打開後可直接點資料格改字。改完不會動到你調好的列高，只有字多到裝不下時才會往上撐。\n原檔用來對齊的白色補位字會顯示成灰色，方便刪掉。": "Turn this on to click a cell and retype it. Editing leaves your row heights alone; a row only grows when the text no longer fits.\nWhite spacer characters the source used for alignment are shown in gray so you can delete them.", "分散對齊的格子原本是一個字一個元素（字距最準），存成 PDF 後在編輯器裡一字一塊、幾乎不能編。\n打勾改用 CSS 兩端對齊，整格是一段連續文字、PDF 編得動，字距由瀏覽器決定、可能跟 Excel 略有差異。": "Distributed cells are normally laid out one character per element, which gives the truest spacing but turns into one uneditable block per character in a PDF.\nCheck this to use CSS justification instead: the cell becomes one run of text that a PDF editor can handle, with spacing decided by the browser and possibly a little different from Excel.", "把目前的列高、分頁、縮放等設定匯出成 JSON 檔，下次可匯入還原": "Saves the current row heights, breaks, scaling and so on to a JSON file you can import later", "匯入之前匯出的 JSON 設定檔，還原列高、分頁等設定": "Loads a JSON settings file you exported earlier and restores the row heights, breaks and the rest", "回到 Excel 原始的列高與分頁，放棄所有調整": "Goes back to Excel's original row heights and page breaks, discarding every adjustment"};
 const origText = new Map();
 // 不能直接 EN[t]：文字若剛好是 "constructor"、"toString" 這類 Object.prototype 的成員，
 // 取到的是函式，String.replace 會當成 replacement function 呼叫，畫面上就變成 "[object Object]"。
@@ -1229,6 +1243,7 @@ function start(model, keepSettings){
   const shDflt = +((D.page.h - D.page.mt - D.page.mb) - titlePt * D.k / 72 * 25.4).toFixed(1);
   dflt = {h: D.rows.map(r => r.h), breaks: D.breaks.slice(),
           lh: 1.15, fs: 1, zoom: .5, k: D.k, push: true, sh: shDflt, shend: shDflt, linkEnd: true, gap: 0, edits: {},
+          footKeep: false,
           colAligns: {}, titleAlign: 'seam',
           rowBorders: {}, colBorders: {}, borderPt: Math.max(D.topBorderPt || .5, 1.5), headGap: 3,
           footH: D.foot.map(r => r.h), oneLineH: 20, multiGap: 16};
@@ -1297,6 +1312,18 @@ function populateFootSelect(){
   $('footH').disabled = !D.foot.length;
   if (D.foot.length) $('footH').value = footHt(+selEl.value);
   else $('footH').value = '';
+  updateFootInfo();
+}
+// 末頁的備註會把地線往上頂：把「頂多少」寫出來，調高度時才不用來回猜。
+// 備註最底部固定貼齊其他頁的地線，所以地線被頂高的量＝備註整塊的高度。
+function updateFootInfo(){
+  const box = $('footInfo'); if (!box || !D) return;
+  const notes = D.foot.length > 1 ? D.foot.length - 1 : 0;
+  if (!notes){ box.textContent = ''; return; }
+  const h = D.foot.reduce((s, _, k) => k ? s + footHt(k) : s, 0);
+  box.textContent = T(
+    `備註 ${notes} 列共 ${h.toFixed(1)}pt：末頁地線比別頁高 ${h.toFixed(1)}pt（${(h * 25.4 / 72).toFixed(1)}mm），備註底部與別頁地線齊。`,
+    `${notes} note row(s), ${h.toFixed(1)}pt in total: the last page's bottom rule sits ${h.toFixed(1)}pt (${(h * 25.4 / 72).toFixed(1)}mm) higher, with the notes ending flush with the other pages' rule.`);
 }
 function populateColAlignSelect(){
   const selEl = $('colAlignSelect');
@@ -1378,12 +1405,20 @@ $('colGrp').addEventListener('mouseover', e => {
                                        `\n⚠ Currently editing column ${colName(v)} — check the dropdown above first`);
 });
 
-$('footSel').onchange = () => { $('footH').value = footHt(+$('footSel').value); };
+$('footSel').onchange = () => { $('footH').value = footHt(+$('footSel').value); updateFootInfo(); };
 $('footH').oninput = e => {
   const k = +$('footSel').value, v = Math.max(4, +e.target.value || 0);
   if (!S.footH) S.footH = D.foot.map(r => r.h);
   S.footH[k] = v;
   (S.footFixed || (S.footFixed = {}))[k] = 1;   // 手動指定過就不再讓 fitFoot 自動縮
+  render(); store.set(S);
+};
+// 備註要不要沿用原檔列高：打開時把備註列的高度還原成原檔值（合計列與手動填過的除外），
+// 之後 fitFoot 對這幾列就只長不縮。
+$('footKeep').onchange = e => {
+  S.footKeep = e.target.checked;
+  if (S.footKeep && S.footH)
+    D.foot.forEach((r, k) => { if (k > 0 && !(S.footFixed && S.footFixed[k])) S.footH[k] = r.h; });
   render(); store.set(S);
 };
 $('hgap').oninput = e => { S.headGap = +e.target.value || 0; render(); store.set(S); };
@@ -2018,7 +2053,8 @@ function fitFoot(){
     // 合計／備註列的高度跟著內容走：長就撐開，刪掉字就縮回來。
     // 原檔的列高只是起點（常常是留了空行的 2 行高），不當地板；手動填過 pt 的才釘住。
     // k === 0 是合計列：字靠下貼著地線，高度是版面的一部分，不自動縮
-    const fixed = k === 0 || (S.footFixed && S.footFixed[k]);
+    // 「備註用原檔列高」＝備註列也當地板（只長不縮），把作者在 Excel 留的行距原樣帶過來
+    const fixed = k === 0 || k > 0 && S.footKeep || (S.footFixed && S.footFixed[k]);
     if (fixed ? need > footHt(k) + 0.05 : Math.abs(need - footHt(k)) > 0.05){
       if (!S.footH) S.footH = D.foot.map(r => r.h);
       S.footH[k] = need;
@@ -2115,6 +2151,10 @@ function render(){
   }
   // fitHead／fitFoot 觸發的那幾次重畫都是同一個動作的一部分（restoring），
   // 每次都寫 localStorage 等於一個動作存三次，存最後那一次就夠
+  updateFootInfo();       // 備註列高是被 fitFoot 自動調過的，畫完才寫得準
+  // 符合頁寬／符合頁高是量畫面上的 .spread 算出來的，所以要在畫完之後才算得準
+  //（載入時 bind() 先跑、那時還沒有 .spread，算不到東西）。自訂模式不動使用者的縮放。
+  if ((S.viewMode || 'fitH') !== 'manual') applyViewMode();
   if (!restoring) store.set(S);
 }
 
@@ -2652,7 +2692,7 @@ function resetToDefault(){
   const shDflt = +((D.page.h - D.page.mt - D.page.mb) - titlePt * D.k / 72 * 25.4).toFixed(1);
   dflt = {h: D.rows.map(r => r.h), breaks: D.breaks.slice(),
           lh: 1.15, fs: 1, zoom: .5, k: D.k, push: false, sh: shDflt, shend: shDflt, linkEnd: true, gap: 0, edits: {},
-          colWidths: null, viewMode: 'fitH',
+          footKeep: false, colWidths: null, viewMode: 'fitH',
           colAligns: {}, titleAlign: 'seam', rowBorders: {}, colBorders: {},
           borderPt: D.topBorderPt || .5, headGap: 3, footH: D.foot.map(r => r.h), oneLineH: 20, multiGap: 16};
   S = JSON.parse(JSON.stringify(dflt));
@@ -2870,6 +2910,12 @@ $('bhint').onclick = () => {
     [T('改字','Edit text'),
      T('「編輯與設定 → 編輯內容」打開後直接點格子改。改完不會動到你調好的列高，只有字裝不下時才往上撐。',
        'Turn on Editing & settings → Edit cells, then click a cell and type. Your row heights are left alone; a row only grows when the text no longer fits.')],
+    [T('檢視畫面','Zoom'),
+     T('左側「畫面 → 檢視」：符合頁寬＝整組對開塞滿視窗寬、符合頁高＝一頁塞滿視窗高、自訂＝自己拉滑桿。縮放只影響螢幕，列印一律原尺寸。',
+       'View → Zoom: Fit width makes the whole spread fill the window, Fit height makes one page fill it, Custom lets you drag the slider. Zoom is on screen only — printing is always full size.')],
+    [T('末頁備註','Last-page notes'),
+     T('末頁的合計與備註釘在底部：備註最底部對齊其他頁的地線，地線被整塊備註的高度往上頂。備註要不要沿用原檔列高，在「合計／備註」裡切換（面板上會寫出地線被頂高多少）。',
+       'The last page pins its totals and notes to the bottom: the notes end flush with the other pages’ rule, which is pushed up by the whole note block. Switch between source and content heights under Totals & notes — the panel tells you how far the rule moves.')],
     [T('輸出','Output'),
      T('「列印 / 存 PDF」開瀏覽器列印（目的地選「另存為 PDF」）；「匯出 xlsx」把列高與分頁寫回原檔。',
        'Print / Save PDF opens the browser print dialog (set Destination to Save as PDF); Export xlsx writes the row heights and breaks back into the workbook.')],
@@ -2994,6 +3040,7 @@ function bind(){
   $('oneh').value = S.oneLineH != null ? S.oneLineH : 20;
   $('mgap').value = S.multiGap != null ? S.multiGap : 16;
   $('pdftext').checked = !!S.pdfText;
+  $('footKeep').checked = !!S.footKeep;
   $('hdrLast').value = D.hdrLast;
   $('parea').value = D.area;
   populateFootSelect();
@@ -3009,42 +3056,61 @@ $('fs').oninput = e => { S.fs = +e.target.value; setVar(); redraw(); };
 $('sh').onchange = e => { S.sh = +e.target.value; bind(); render(); };
 $('shend').onchange = e => { S.shend = +e.target.value; render(); };
 $('linkend').onchange = e => { S.linkEnd = e.target.checked; bind(); render(); };
-$('zm').oninput = e => { S.zoom = +e.target.value; S.viewMode = 'manual'; setVar(); updateViewBtn(); };
+$('zm').oninput = e => { S.zoom = +e.target.value; S.viewMode = 'manual'; setVar(); applyViewMode(); updateViewBtn(); };
 
-// ---- Fit Height / Fit Width 切換 ----
-function calcFitZoom(mode){
-  if (!D) return .5;
-  const pw = D.page.w, ph = D.page.h;
-  const vpW = window.innerWidth - ($('side')?.offsetWidth || 0), vpH = window.innerHeight - ($('bar').offsetHeight || 40);
-  // spread 是兩頁並排 + 12px gap + 58px 左側標尺 + 40px padding
-  const spreadW = pw * 2 * (96/25.4) + 12 + 58 + 40;
-  const pageH = ph * (96/25.4) + 40;
-  if (mode === 'fitW') return Math.min(1.5, vpW / spreadW);
-  return Math.min(1.5, vpH / pageH);
+// ---- 檢視模式：符合頁寬／符合頁高／自訂 ----
+// 直接量「這一組對開」實際佔掉的畫面（.spread 的框＋#doc 的 padding），再照比例換算縮放。
+// 不寫死 12／58／40 那幾個數字——CSS 改了（標尺寬度、裝訂縫、padding）量到的值會自己跟上。
+// 量到的尺寸已經含目前的縮放，所以換算是「目前縮放 × 可用空間／現在佔用」。
+function fitTarget(mode){
+  const d = $('doc'), sp = d.querySelector('.spread');
+  if (!D || !sp) return null;
+  const cur = +(parseFloat(getComputedStyle(d).getPropertyValue('--zoom')) || S.zoom || 1);
+  const sr = sp.getBoundingClientRect();
+  const cs = getComputedStyle(d);
+  const padW = (parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)) * cur;
+  const padH = (parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom)) * cur;
+  const needW = sr.width + padW, needH = sr.height + padH;      // 這一版在畫面上佔的寬／高
+  // 可用空間：視窗扣掉工具列與側欄。clientWidth 已經扣掉直向捲軸
+  const availW = document.documentElement.clientWidth - ($('side')?.offsetWidth || 0);
+  const availH = window.innerHeight - ($('bar')?.offsetHeight || 40);
+  if (needW < 40 || needH < 40 || availW < 80 || availH < 80) return null;
+  const raw = cur * (mode === 'fitW' ? availW / needW : availH / needH);
+  return { zoom: Math.max(.3, Math.min(1.5, raw)), needW, availW, cur };
 }
 function applyViewMode(){
   const mode = S.viewMode || 'fitH';
   const d = $('doc');
   if (mode === 'manual'){
+    // 自訂＝滑桿自己拉的：把置中留白還原，文件貼著檢視區左緣，橫向捲動才可預期
     d.classList.remove('fit-center');
+    d.style.marginLeft = '';
     return;
   }
-  S.zoom = calcFitZoom(mode);
+  const f = fitTarget(mode);
+  if (!f) return;
+  S.zoom = +f.zoom.toFixed(4);
   d.classList.add('fit-center');
   $('zm').value = S.zoom;
   setVar();
+  // 置中用「縮放後」的可見寬自己算，不能用 margin:auto——
+  // transform:scale 不會改版面盒，margin:auto 是在未縮放的大盒子裡置中，算出來會偏掉
+  const sp = d.querySelector('.spread');
+  if (sp){
+    const cs = getComputedStyle(d);
+    const visW = sp.getBoundingClientRect().width + (parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)) * S.zoom;
+    d.style.marginLeft = Math.max(0, Math.round((f.availW - visW) / 2)) + 'px';
+  }
 }
 function updateViewBtn(){
-  const b = $('bview');
   const mode = S.viewMode || 'fitH';
-  b.textContent = mode === 'fitH' ? T('滿高','Fit height') : mode === 'fitW' ? T('滿寬','Fit width') : T('自訂','Custom');
-  b.classList.toggle('active', mode !== 'manual');
+  document.querySelectorAll('#viewSeg button').forEach(b => b.classList.toggle('active', b.dataset.vm === mode));
 }
-$('bview').onclick = () => {
-  const m = S.viewMode || 'fitH';
-  S.viewMode = m === 'fitH' ? 'fitW' : m === 'fitW' ? 'manual' : 'fitH';
+document.querySelectorAll('#viewSeg button').forEach(b => b.onclick = () => {
+  // 已經是這一種時再按一次＝照現在的視窗重算（縮放過或改過版面之後很方便）
+  S.viewMode = b.dataset.vm;
   applyViewMode(); updateViewBtn(); store.set(S);
-};
+});
 window.addEventListener('resize', () => {
   if (S && (S.viewMode || 'fitH') !== 'manual') applyViewMode();
 });

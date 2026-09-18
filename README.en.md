@@ -168,6 +168,7 @@ automatically.
 | A page looks crowded on top, empty at the bottom | "This page → Even heights" spreads the leftover space across that page's rows ("All pages → Even heights" does the lot) |
 | More air between rows | The "Row spacing" slider, applied to every page |
 | Document-wide | Scale, row spacing, line height, font size, rule-to-rule height, last-page bottom rule |
+| On-screen zoom | Under View → Zoom on the left: **Fit width** (the whole spread, gutter and ruler included, fills the window), **Fit height** (one page fills it), **Custom** (drag the slider). It re-fits when the window changes and centres itself when the spread is narrower than the window. Screen only — printing is always full size |
 | Back to Excel | "Export xlsx" writes the row heights and breaks into the original file |
 | Forgot how something works | "How to use" on the toolbar opens a cheat sheet you can copy |
 | Want to take a change back | ⌘Z / Ctrl+Z to undo, ⇧⌘Z to redo; deleting a row and dragging to reorder are not undoable |
@@ -180,6 +181,17 @@ The totals and notes on the last page are pinned to the bottom: with "Last page 
 bottom rule" checked, **the foot of the notes lands on the same line as the other pages'
 bottom rule**, and the last page's own bottom rule (under the totals) is pushed up by however
 tall the notes are. Uncheck it to set the last page's height by hand.
+
+There are two ways to measure the notes; switch in "Totals & notes", where the panel also tells you
+how far the last page's rule moved, in pt and mm:
+
+- **Shrink to content (default)**: note rows keep only the height their text needs, dropping the blank
+  space the source left, so the rule sits lower and the last page can take a few more rows.
+- **Keep source note heights**: each note row keeps the height the author gave it in Excel and only grows
+  when the text no longer fits, which puts the rule exactly where the source had it.
+
+Either way the foot of the notes stays flush with the other pages' rule, and a note row is always the
+same height on both halves of the spread.
 
 **Running totals** (in mm on paper, header already deducted): each page shows
 `Used 195.1 / 219.2mm · 24.1mm left` in its top-right corner, and the left ruler labels the
