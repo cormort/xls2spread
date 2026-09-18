@@ -1319,6 +1319,8 @@ function populateFootSelect(){
 function updateFootInfo(){
   const box = $('footInfo'); if (!box || !D) return;
   const notes = D.foot.length > 1 ? D.foot.length - 1 : 0;
+  // 沒有備註列（表尾只有合計）時，這個開關沒有意義，灰掉免得按了沒反應
+  if ($('footKeep')) $('footKeep').disabled = !notes;
   if (!notes){ box.textContent = ''; return; }
   const h = D.foot.reduce((s, _, k) => k ? s + footHt(k) : s, 0);
   box.textContent = T(
