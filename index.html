@@ -1352,6 +1352,16 @@ function noteText(c, key){
   return t.replace(/<[^>]*>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
           .replace(/\r\n?/g, '\n');
 }
+const plainNote = t => (t || '').replace(/<[^>]*>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+                               .replace(/&amp;/g, '&').replace(/\r\n?/g, '\n');
+// 這一格該拿哪份文字當段落來源：畫面上的內容若跟原檔只差在換行，那些換行就是「跨頁重排」
+// 自己排上去的（不是作者的），用原檔那份、把我們加的換行丟掉；使用者真的改過字才用畫面上那份。
+// 少了這一條，舊版排過的三行會被當成作者的硬換行留下來，再怎麼重排都還是那三行。
+function noteCellText(c, key){
+  const src = plainNote(c && c.t), cur = noteText(c, key);
+  const flat = t => t.replace(/[\s\u3000]/g, '');
+  return flat(cur) === flat(src) ? src : cur;
+}
 // 這個寬度裡放得下的字數（二元搜尋；一個字都放不下也回 1，免得外層無窮迴圈）
 function fitCount(text, from, width, measure){
   const rest = text.slice(from);
@@ -1411,7 +1421,7 @@ function noteParaPlan(k){
   if (S.notePlan[k]) return S.notePlan[k];
   const pick = side => {
     const list = (D.foot[k][side] || [])
-      .map((c, ci) => ({ ci, t: noteText(c, `f${k}|${side}|${ci}`) })).filter(x => x.t.trim());
+      .map((c, ci) => ({ ci, t: noteCellText(c, `f${k}|${side}|${ci}`) })).filter(x => x.t.trim());
     // 前面的格子裡塞了長文字（例如一列放了兩條備註）就認不出哪一格是本文，回 undefined 跳過
     if (list.slice(0, -1).some(x => x.t.replace(/[\s\u3000]/g, '').length > 6)) return undefined;
     return list.length ? list[list.length - 1] : { ci: 0, t: '' };
@@ -1432,8 +1442,10 @@ const paraText = p => p.mode === 'flow' ? p.text : p.l + '\u0002' + p.r;
 function syncNotePara(k){
   const plan = S.notePlan && S.notePlan[k];
   if (!plan) return;
-  const cur = side => noteText((D.foot[k][side] || [])[side === 'l' ? plan.li : plan.ri],
-                               `f${k}|${side}|${side === 'l' ? plan.li : plan.ri}`);
+  const cur = side => {
+    const ci = side === 'l' ? plan.li : plan.ri;
+    return noteCellText((D.foot[k][side] || [])[ci], `f${k}|${side}|${ci}`);
+  };
   const L = cur('l'), R = cur('r');
   if (plan.mode === 'split'){ plan.l = L; plan.r = R; return; }
   const Ll = L.split('\n'), Rl = R.split('\n');
@@ -3275,8 +3287,9 @@ function bind(){
   $('hdrLast').value = D.hdrLast;
   $('parea').value = D.area;
   if (D.foot.length > 1){
-    // 計畫的欄位改過（這一版多了溢出的判斷）就整批重建，別沿用舊的形狀
-    if (S.notePlanV !== 2){ S.notePlan = null; S.notePlanV = 2; }
+    // 計畫的欄位或段落來源的取法改過就整批重建（v3：多了溢出寬度＋丟掉我們自己排的換行），
+    // 不然舊的計畫／舊的換行會被當成作者的內容沿用下去
+    if (S.notePlanV !== 3){ S.notePlan = null; S.notePlanV = 3; }
     S.notePlan || (S.notePlan = {});
     D.foot.forEach((_, k) => { if (k) noteParaPlan(k); });   // 段落本文先建好，render 途中才不會改到 S
   }
