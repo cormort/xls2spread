@@ -1431,9 +1431,11 @@ function noteParaPlan(k){
   // 本文格右邊的格子是不是空的：是的話原檔是靠「文字往右邊空的格子溢出」顯示的
   //（Excel 沒合併、也沒設自動換行時就是這樣），可用寬度算到半頁右緣，不是那一欄的寬度。
   const canSpill = (side, ci) => !(D.foot[k][side] || []).slice(ci + 1).some(c => plainOf(c.t));
-  const plan = (!L.t.trim() || !R.t.trim() || NEW_ITEM.test(R.t))
+  // 右半空、左半又能往右溢出：原檔在 Excel 裡這句是一路溢到右頁去的，所以照 flow 接排到右半
+  const runOn = L.t.trim() && !R.t.trim() && canSpill('l', L.ci) && canSpill('r', R.ci);
+  const plan = !runOn && (!L.t.trim() || !R.t.trim() || NEW_ITEM.test(R.t))
     ? { mode: 'split', li: L.ci, ri: R.ci, l: L.t, r: R.t, sl: canSpill('l', L.ci), sr: canSpill('r', R.ci) }
-    : { mode: 'flow', li: L.ci, ri: R.ci, text: L.t + R.t, sl: canSpill('l', L.ci), sr: canSpill('r', R.ci) };
+    : { mode: 'flow', li: L.ci, ri: R.ci, text: interleave(L.t, R.t), sl: canSpill('l', L.ci), sr: canSpill('r', R.ci) };
   S.notePlan[k] = plan;
   return plan;
 }
@@ -1448,10 +1450,15 @@ function syncNotePara(k){
   };
   const L = cur('l'), R = cur('r');
   if (plan.mode === 'split'){ plan.l = L; plan.r = R; return; }
+  plan.text = interleave(L, R);
+}
+// 左右兩半逐行交錯接回一段。左半第 2 行起的行首空白是接排補上的懸掛縮排，不是本文，丟掉
+function interleave(L, R){
   const Ll = L.split('\n'), Rl = R.split('\n');
   let out = '';
-  for (let i = 0; i < Math.max(Ll.length, Rl.length); i++) out += (Ll[i] || '') + (Rl[i] || '');
-  plan.text = out;
+  for (let i = 0; i < Math.max(Ll.length, Rl.length); i++)
+    out += (i ? (Ll[i] || '').replace(/^[\s\u3000]+/, '') : (Ll[i] || '')) + (Rl[i] || '');
+  return out;
 }
 
 // 「會影響接排結果的東西」的指紋：段落本文、字型／字級／行距／縮放比例、每一格的實際寬度。
@@ -1498,6 +1505,27 @@ function reflowFootNotes(opts){
     return rest > 1 ? own + rest : own;
   };
   const rows = []; let skipped = 0;
+  // 一條備註在原檔常佔好幾列（第 2 列起用空白縮排接續、不以編號開頭）。
+  // 每列各排各的，前幾列右半會停在那一列原本的字尾、沒吃滿頁寬，所以整條接成一段排：
+  // 前面每一列放一行左＋一行右（跟原檔一樣），最後一列放剩下的。
+  const groupRest = {};   // 組頭 k → { text, indent, ks: [後續列] }；後續列 k → 'cont'
+  for (let k = 1; k < D.foot.length; k++){
+    const p = noteParaPlan(k);
+    if (!p || p.mode !== 'flow') continue;
+    let j = k + 1;
+    const ks = [];
+    for (; j < D.foot.length; j++){
+      const q = noteParaPlan(j);
+      if (!q || q.mode !== 'flow' || NEW_ITEM.test(q.text) || !/^[\s\u3000]/.test(q.text)) break;
+      ks.push(j);
+    }
+    if (!ks.length) continue;
+    const indent = noteParaPlan(ks[0]).text.match(/^[\s\u3000]+/)[0];
+    groupRest[k] = { text: p.text + ks.map(j => noteParaPlan(j).text.replace(/^[\s\u3000]+/, '')).join(''), indent, ks };
+    ks.forEach(j => groupRest[j] = 'cont');
+    k = j - 1;
+  }
+  let carry = null;   // 目前這組還沒排完的字 { text, indent, last }
   D.foot.forEach((row, k) => {
     if (k === 0) return;                      // k=0 是合計列，不動
     const plan = noteParaPlan(k);
@@ -1507,7 +1535,20 @@ function reflowFootNotes(opts){
     const ml = measOf(wl), mr = measOf(wr);
     const aw = availOf(wl, plan.sl), bw = availOf(wr, plan.sr);
     let newL, newR;
-    if (plan.mode === 'flow'){
+    const g = groupRest[k];
+    if (g && g !== 'cont') carry = { text: g.text, indent: '', last: g.ks[g.ks.length - 1], ind: g.indent };
+    if (g){
+      // 左半行首補懸掛縮排：量寬度時一起量，排完再接上
+      const pre = carry.indent, mlI = t => ml(pre + t);
+      const { L, R } = wrapAcross(carry.text, aw, bw, mlI, mr);
+      const Lp = L.map((t, i) => (i ? carry.ind : pre) + t);
+      if (k === carry.last){ newL = joinLines(Lp); newR = joinLines(R); carry = null; }
+      else {
+        newL = L.length && L[0] ? Lp[0] : ''; newR = R[0] || '';
+        carry.text = carry.text.slice((L[0] || '').length + (R[0] || '').length);
+        carry.indent = carry.ind;
+      }
+    } else if (plan.mode === 'flow'){
       const { L, R } = wrapAcross(plan.text, aw, bw, ml, mr);   // 左右接成一段
       newL = joinLines(L); newR = joinLines(R);
     } else {
@@ -3289,7 +3330,7 @@ function bind(){
   if (D.foot.length > 1){
     // 計畫的欄位或段落來源的取法改過就整批重建（v3：多了溢出寬度＋丟掉我們自己排的換行），
     // 不然舊的計畫／舊的換行會被當成作者的內容沿用下去
-    if (S.notePlanV !== 3){ S.notePlan = null; S.notePlanV = 3; }
+    if (S.notePlanV !== 5){ S.notePlan = null; S.notePlanV = 5; }
     S.notePlan || (S.notePlan = {});
     D.foot.forEach((_, k) => { if (k) noteParaPlan(k); });   // 段落本文先建好，render 途中才不會改到 S
   }
