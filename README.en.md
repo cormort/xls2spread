@@ -193,6 +193,25 @@ how far the last page's rule moved, in pt and mm:
 Either way the foot of the notes stays flush with the other pages' rule, and a note row is always the
 same height on both halves of the spread.
 
+**Re-wrapping across the spread** (Totals & notes → Re-wrap across the spread): a spread's notes are
+one sentence running across both sheets, but in the source workbook the left and right cells wrap on
+their own — once the browser's fonts are used the two halves often end up with different line counts
+(2 on the left, 1 on the right) and the sentence reads broken. This button joins the two halves into
+one paragraph and lays it out across "left width → right width → left width…", writing each line's
+left part back into the left cell and its right part into the right cell:
+
+- both halves get the same number of lines, each line on the same baseline (aligned across the gutter)
+- Chinese punctuation never starts a line (，。、) and never ends one (（「); Latin words are not split
+- notes you have not edited are re-wrapped too; edited ones keep your text, and every press starts
+  from the source text, so the result is stable
+- when the right half is a note of its own (starting with a number or 註), the halves are wrapped
+  separately instead of being joined
+- notes split over several cells (e.g. a lone 註： cell) cannot be joined and are skipped, with a note
+  in the panel
+
+The re-wrap writes the on-screen text through the same path as manual editing, so ⌘Z undoes it and
+you can always reset back to the workbook's own content.
+
 **Running totals** (in mm on paper, header already deducted): each page shows
 `Used 195.1 / 219.2mm · 24.1mm left` in its top-right corner, and the left ruler labels the
 running total row by row, marking the last one `▏full`. A red underline means that cell's
