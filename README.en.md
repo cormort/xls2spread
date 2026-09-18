@@ -193,7 +193,8 @@ how far the last page's rule moved, in pt and mm:
 Either way the foot of the notes stays flush with the other pages' rule, and a note row is always the
 same height on both halves of the spread.
 
-**Re-wrapping across the spread** (Totals & notes → Re-wrap across the spread): a spread's notes are
+**Re-wrapping across the spread** (Totals & notes — automatic by default, and the "Re-wrap across the
+spread" button re-does it on demand): a spread's notes are
 one sentence running across both sheets, but in the source workbook the left and right cells wrap on
 their own — once the browser's fonts are used the two halves often end up with different line counts
 (2 on the left, 1 on the right) and the sentence reads broken. This button joins the two halves into
@@ -211,6 +212,16 @@ left part back into the left cell and its right part into the right cell:
 
 The re-wrap writes the on-screen text through the same path as manual editing, so ⌘Z undoes it and
 you can always reset back to the workbook's own content.
+
+**When it runs automatically**: once when a file is loaded, and again whenever the font, font size,
+line height, column widths, split column, print range or scale change, or when you edit one half of a
+note. It keys off a fingerprint of the paragraph text plus each cell's real width, so nothing is redone
+when that has not changed (dragging row heights, which redraws constantly, does not re-wrap).
+Uncheck "Re-wrap automatically" to stop it; the button still works either way.
+
+The paragraph text is taken from the source once and kept, and every pass lays that same text out
+again — so pressing the button any number of times gives the same result instead of shuffling the
+text along. When you edit a note, the two halves are zipped back line by line into the paragraph.
 
 **Running totals** (in mm on paper, header already deducted): each page shows
 `Used 195.1 / 219.2mm · 24.1mm left` in its top-right corner, and the left ruler labels the
