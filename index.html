@@ -1567,8 +1567,10 @@ function reflowFootNotes(opts){
     // 左半最後一行後面還接著右半（段落沒在左頁結束）→ 每一行都要撐滿，右緣才齊
     if (newL && (plan.mode === 'flow' || g)){
       const nL = newL.split('\n').length, rl = (newR || '').split('\n');
-      if (rl.length >= nL && rl[nL - 1]) just[`f${k}|l|${plan.li}`] = aw;
+      if (rl.length >= nL && rl[nL - 1]) just[`f${k}|l|${plan.li}`] = { w: aw, last: 1 };
     }
+    // 右半：除了段落最後一行都撐滿；組裡還沒到最後一列時，這一行也接著下一列，要整行撐滿
+    if (newR && (plan.mode === 'flow' || g)) just[`f${k}|r|${plan.ri}`] = { w: bw, last: g && carry ? 1 : 0 };
     rows.push({ k, li: plan.li, ri: plan.ri, curL, curR, newL, newR,
                 lines: Math.max(newL ? newL.split('\n').length : 0, newR ? newR.split('\n').length : 0) });
   });
@@ -2197,11 +2199,12 @@ function makePage(idx, side, no, last, first){
       // 這幾行是「跨頁重排」自己算好的：不要再讓瀏覽器自動折行，
       // 否則行尾為了避頭尾點多擠進來的那一兩個標點會被折到下一行去。
       if (/\n/.test(w.textContent || '')) w.style.whiteSpace = 'pre';
-      // 左頁備註左右對齊：寬度設成接排時用的可排寬（可能溢到右邊空格），text-align-last 讓每一行都撐滿
+      // 備註左右對齊：寬度設成接排時用的可排寬（可能溢到右邊空格），text-align-last 讓每一行都撐滿
       const jw = S.noteJust && S.noteJust[key];
-      if (jw && side === 'l'){
+      if (jw){
         const cs = w.style;
-        cs.width = jw + 6 + 'px'; cs.textAlign = 'justify'; cs.textAlignLast = 'justify';
+        cs.whiteSpace = 'pre';   // 只有一行時上面不會設 pre，瀏覽器會把行尾一兩個字折下去
+        cs.width = jw.w + 6 + 'px'; cs.textAlign = 'justify'; cs.textAlignLast = jw.last ? 'justify' : 'left';
       }
       if (S.editing){ w.contentEditable = 'plaintext-only'; w.spellcheck = false; }
       if (k === 0){
