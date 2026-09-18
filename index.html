@@ -1472,7 +1472,7 @@ function autoWrapSig(){
     parts.push(p ? paraText(p) : '\u0003');
   });
   parts.push(S.k, S.fs, S.lh, S.font || '', S.fontFam || '', D.area, D.hdrLast);
-  document.querySelectorAll('tr[data-f] .cw').forEach(w => parts.push(w.dataset.key, w.clientWidth));
+  document.querySelectorAll('tr[data-f] .cw').forEach(w => parts.push(w.dataset.key, w.parentElement.clientWidth));
   return parts.join('\u0001');
 }
 
@@ -1496,7 +1496,8 @@ function reflowFootNotes(opts){
   // 量出來的可用寬度比真正的大十幾 px，行就會被瀏覽器再折一次。
   const availOf = (w, spill) => {
     const cs = getComputedStyle(w);
-    const own = Math.max(8, w.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0));
+    // 用格子（td）的寬，不用 w 自己的：左右對齊時 w 會被設成整段可用寬，量 w 會越量越寬
+    const own = Math.max(8, w.parentElement.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0));
     if (!spill) return own;
     const z = S.zoom || 1;
     let rest = 0;
@@ -1527,6 +1528,7 @@ function reflowFootNotes(opts){
   }
   let carry = null;   // 目前這組還沒排完的字 { text, indent, last }
   const gone = {};    // 整組排完後沒分到字的列：高度收成 0，匯出設成隱藏
+  const just = {};    // 左半每一行都接到右頁去的格：左右對齊（值＝可排寬度 px）
   D.foot.forEach((row, k) => {
     if (k === 0) return;                      // k=0 是合計列，不動
     const plan = noteParaPlan(k);
@@ -1562,6 +1564,11 @@ function reflowFootNotes(opts){
     }
     const curL = noteText((row.l || [])[plan.li], `f${k}|l|${plan.li}`);
     const curR = noteText((row.r || [])[plan.ri], `f${k}|r|${plan.ri}`);
+    // 左半最後一行後面還接著右半（段落沒在左頁結束）→ 每一行都要撐滿，右緣才齊
+    if (newL && (plan.mode === 'flow' || g)){
+      const nL = newL.split('\n').length, rl = (newR || '').split('\n');
+      if (rl.length >= nL && rl[nL - 1]) just[`f${k}|l|${plan.li}`] = aw;
+    }
     rows.push({ k, li: plan.li, ri: plan.ri, curL, curR, newL, newR,
                 lines: Math.max(newL ? newL.split('\n').length : 0, newR ? newR.split('\n').length : 0) });
   });
@@ -1571,7 +1578,7 @@ function reflowFootNotes(opts){
                 : T('沒有可以重排的備註列。', 'Nothing to re-wrap.'));
     return;
   }
-  S.footGone = gone;
+  S.footGone = gone; S.noteJust = just;
   let changed = 0;
   for (const r of rows){
     if (r.newL !== r.curL || r.newR !== r.curR) changed++;
@@ -2190,6 +2197,12 @@ function makePage(idx, side, no, last, first){
       // 這幾行是「跨頁重排」自己算好的：不要再讓瀏覽器自動折行，
       // 否則行尾為了避頭尾點多擠進來的那一兩個標點會被折到下一行去。
       if (/\n/.test(w.textContent || '')) w.style.whiteSpace = 'pre';
+      // 左頁備註左右對齊：寬度設成接排時用的可排寬（可能溢到右邊空格），text-align-last 讓每一行都撐滿
+      const jw = S.noteJust && S.noteJust[key];
+      if (jw && side === 'l'){
+        const cs = w.style;
+        cs.width = jw + 6 + 'px'; cs.textAlign = 'justify'; cs.textAlignLast = 'justify';
+      }
       if (S.editing){ w.contentEditable = 'plaintext-only'; w.spellcheck = false; }
       if (k === 0){
         td.style.borderBottom = linePx();
