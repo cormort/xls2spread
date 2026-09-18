@@ -1471,19 +1471,19 @@ function reflowFootNotes(opts){
     w.appendChild(s);
     return t => { s.textContent = t; return s.getBoundingClientRect().width / z; };
   };
-  // 這一格可以排多寬。spill＝原檔沒合併、右邊的格子又是空的（Excel 是讓文字往右邊溢出顯示的，
-  // 例如最後一列備註），這時可以用到半頁右緣；只算那一欄的寬度會把字折成一堆窄行。
+  // 這一格可以排多寬。spill＝原檔沒合併、右邊的格子又是空的（Excel 是讓文字往右邊溢出的，
+  // 例如最後一列備註），這時要把右邊那些空格的寬度一起算進來；只算那一欄會把字折成一堆窄行。
+  // 用「自己 + 右邊兄弟格」的實際寬度相加，不要用表格右緣——表格右緣會把框線寬度也算進去，
+  // 量出來的可用寬度比真正的大十幾 px，行就會被瀏覽器再折一次。
   const availOf = (w, spill) => {
     const cs = getComputedStyle(w);
-    const pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
-    if (!spill) return Math.max(8, w.clientWidth - pad);
-    const td = w.parentElement, tbl = td.closest('table');
-    if (!tbl) return Math.max(8, w.clientWidth - pad);
-    const tcs = getComputedStyle(td);
+    const own = Math.max(8, w.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0));
+    if (!spill) return own;
     const z = S.zoom || 1;
-    const vis = (tbl.getBoundingClientRect().right
-                 - (td.getBoundingClientRect().left + (parseFloat(tcs.paddingLeft) || 0))) / z;
-    return Math.max(8, vis - pad);
+    let rest = 0;
+    for (let sib = w.parentElement.nextElementSibling; sib; sib = sib.nextElementSibling)
+      rest += sib.getBoundingClientRect().width / z;
+    return rest > 1 ? own + rest : own;
   };
   const rows = []; let skipped = 0;
   D.foot.forEach((row, k) => {
@@ -2127,6 +2127,9 @@ function makePage(idx, side, no, last, first){
       w.style.minHeight = w.style.height;
       w.style.height = 'auto';
       w.style.overflow = 'visible';
+      // 這幾行是「跨頁重排」自己算好的：不要再讓瀏覽器自動折行，
+      // 否則行尾為了避頭尾點多擠進來的那一兩個標點會被折到下一行去。
+      if (/\n/.test(w.textContent || '')) w.style.whiteSpace = 'pre';
       if (S.editing){ w.contentEditable = 'plaintext-only'; w.spellcheck = false; }
       if (k === 0){
         td.style.borderBottom = linePx();
