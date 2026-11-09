@@ -2145,6 +2145,8 @@ function makePage(idx, side, no, last, first){
   const body = el('tbody');
   idx.forEach(i => {
     const tr = el('tr'); tr.dataset.i = i;
+    // 整列都是跨列格時沒有東西撐住列高，瀏覽器會把它壓成 0，左右頁就對不齊
+    tr.style.height = (rh(i)*S.k).toFixed(2) + 'pt';
     if (i === sel) tr.className = 'sel';
     D.rows[i][side].forEach((c, ci) => {
       const key = i + '|' + side + '|' + ci;
@@ -2505,7 +2507,9 @@ function setVar(){
     ? `thead tr:first-child th{border-top:${+S.borderPt}pt solid #000!important}` : '';
 }
 function applyH(i){
-  document.querySelectorAll(`tr[data-i="${i}"] .cw`).forEach(w => w.style.height = (rh(i)*S.k).toFixed(2) + 'pt');
+  const h = (rh(i)*S.k).toFixed(2) + 'pt';
+  document.querySelectorAll(`tr[data-i="${i}"]`).forEach(t => t.style.height = h);
+  document.querySelectorAll(`tr[data-i="${i}"] .cw`).forEach(w => w.style.height = h);
 }
 function select(i){
   sel = i;
