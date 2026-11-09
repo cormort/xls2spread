@@ -1755,6 +1755,7 @@ function evenOut(all){
                            .filter(([idx]) => all || idx.includes(sel));
   const targets = pick(pages());
   if (!targets.length){ alert(T('先點選要調整的那一頁裡的任一列','Click any row on the page you want to adjust first')); return; }
+  if (!all) pinPage(targets[0][0]);
   const multi = multiLineRows();
   const one   = S.oneLineH  != null ? +S.oneLineH  : 20;
   const extra = S.multiGap != null ? +S.multiGap : 16;
@@ -2847,8 +2848,14 @@ $('bfitall').onclick = () => { fitMany(D.rows.map((_,i) => i)); render(); };
 $('bfitpage').onclick = () => {
   const pg = pages().find(idx => idx.includes(sel));
   if (!pg){ alert(T('先點選要調整的那一頁裡的任一列','Click any row on the page you want to adjust first')); return; }
-  fitMany(pg); render();
+  pinPage(pg); fitMany(pg); render();
 };
+// 「本頁」只動這一組對開：把這頁的頭尾寫成手動分頁點，列高變了也不會把別組對開的列拉過來或推過去
+function pinPage(pg){
+  const all = pages(), nx = all[all.findIndex(p => p[0] === pg[0]) + 1];
+  [pg[0], nx && nx[0]].forEach(i => { if (i > 0 && !S.breaks.includes(i)) S.breaks.push(i); });
+  S.breaks.sort((a,b) => a-b);
+}
 $('bauto').onclick = () => {
   // 沒有手動分頁點時沒東西會被丢掉，就不必再問一次。
   // 「清除分頁 → 平均列高」是最常用的兩步，而載入時分頁點本來就是 0，
